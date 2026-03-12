@@ -21,6 +21,10 @@ import { useSearchParams } from "next/navigation";
 import { getRuleById, updateRules } from "@/lib/api";
 import { toast } from "sonner";
 import { VisualRuleBuilder, type ActionEntry } from "@/components/VisualRuleBuilder";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, parse } from "date-fns";
+import { id } from "date-fns/locale";
 
 
 // ─── Convert tree → backend payload ──────────────────────────
@@ -92,6 +96,18 @@ const formatDateForBackend = (dateStr: string): string => {
   return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
 };
 
+// datetime-local string → Date object
+const datetimeToDate = (val: string): Date | undefined => {
+  if (!val) return undefined;
+  try { return new Date(val); } catch { return undefined; }
+};
+
+// Date object → datetime-local string (yyyy-MM-ddTHH:mm)
+const dateToDatetime = (date: Date, existingVal: string): string => {
+  const time = existingVal?.split("T")[1] ?? "00:00";
+  return `${format(date, "yyyy-MM-dd")}T${time}`;
+};
+
 export default function RuleBuilderPage() {
   const router = useRouter();
   const [ruleName, setRuleName]   = useState("Rule Baru");
@@ -104,6 +120,8 @@ export default function RuleBuilderPage() {
   const handleTabSwitch = (t: "builder" | "visual" | "preview") => {
     setTab(t);
   };
+  const [startDateOpen, setStartDateOpen] = useState(false);
+  const [endDateOpen, setEndDateOpen]     = useState(false);
 
   // Di dalam komponen, tambahkan:
     const searchParams = useSearchParams();
@@ -467,25 +485,113 @@ export default function RuleBuilderPage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Periode Berlaku</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  <div>
+                <CardContent className="flex flex-col gap-4">
+
+                  {/* Start Date */}
+                  <div className="flex flex-col gap-1.5">
                     <Label className="text-xs">Start Date</Label>
-                    <Input
-                      type="datetime-local"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="mt-1 disabled:opacity-70 disabled:cursor-default"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={`w-full justify-start text-left text-xs font-normal h-9
+                            ${!startDate ? "text-muted-foreground" : ""}`}>
+                          <span className="mr-2">📅</span>
+                          {startDate
+                            ? format(new Date(startDate), "dd MMMM yyyy, HH:mm", { locale: id })
+                            : "Pilih tanggal mulai"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={datetimeToDate(startDate)}
+                          onSelect={(date) => {
+                            if (date) {
+                              setStartDate(dateToDatetime(date, startDate));
+                              setTimeout(() => setStartDateOpen(false), 50);
+                            }
+                          }}
+                          initialFocus
+                          locale={id}
+                        />
+                        {/* Time input */}
+                        <div className="px-3 pb-3 flex items-center gap-2 border-t pt-3">
+                          <span className="text-xs text-muted-foreground">⏰ Waktu:</span>
+                          <Input
+                            type="time"
+                            value={startDate?.split("T")[1]?.slice(0, 5) ?? "00:00"}
+                            onChange={(e) => {
+                              const date = startDate?.split("T")[0] ?? format(new Date(), "yyyy-MM-dd");
+                              setStartDate(`${date}T${e.target.value}`);
+                            }}
+                            className="h-7 text-xs w-28"
+                          />
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    {startDate && (
+                      <button
+                        onClick={() => setStartDate("")}
+                        className="text-[10px] text-muted-foreground hover:text-destructive text-left">
+                        ✕ Hapus start date
+                      </button>
+                    )}
                   </div>
-                  <div>
+
+                  {/* End Date */}
+                  <div className="flex flex-col gap-1.5">
                     <Label className="text-xs">End Date</Label>
-                    <Input
-                      type="datetime-local"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="mt-1 disabled:opacity-70 disabled:cursor-default"
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={`w-full justify-start text-left text-xs font-normal h-9
+                            ${!endDate ? "text-muted-foreground" : ""}`}>
+                          <span className="mr-2">📅</span>
+                          {endDate
+                            ? format(new Date(endDate), "dd MMMM yyyy, HH:mm", { locale: id })
+                            : "Pilih tanggal selesai"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={datetimeToDate(endDate)}
+                          onSelect={(date) => {
+                            if (date) {
+                              setEndDate(dateToDatetime(date, endDate));
+                              setTimeout(() => setEndDateOpen(false), 50);
+                            }
+                          }}
+                          initialFocus
+                          locale={id}
+                          disabled={(date) => startDate ? date < new Date(startDate) : false}
+                        />
+                        {/* Time input */}
+                        <div className="px-3 pb-3 flex items-center gap-2 border-t pt-3">
+                          <span className="text-xs text-muted-foreground">⏰ Waktu:</span>
+                          <Input
+                            type="time"
+                            value={endDate?.split("T")[1]?.slice(0, 5) ?? "23:59"}
+                            onChange={(e) => {
+                              const date = endDate?.split("T")[0] ?? format(new Date(), "yyyy-MM-dd");
+                              setEndDate(`${date}T${e.target.value}`);
+                            }}
+                            className="h-7 text-xs w-28"
+                          />
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    {endDate && (
+                      <button
+                        onClick={() => setEndDate("")}
+                        className="text-[10px] text-muted-foreground hover:text-destructive text-left">
+                        ✕ Hapus end date
+                      </button>
+                    )}
                   </div>
+
                 </CardContent>
               </Card>
             </div>
@@ -511,19 +617,112 @@ export default function RuleBuilderPage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Periode Berlaku</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  <div>
+                <CardContent className="flex flex-col gap-4">
+
+                  {/* Start Date */}
+                  <div className="flex flex-col gap-1.5">
                     <Label className="text-xs">Start Date</Label>
-                    <Input type="datetime-local" value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="mt-1" />
+                    <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={`w-full justify-start text-left text-xs font-normal h-9
+                            ${!startDate ? "text-muted-foreground" : ""}`}>
+                          <span className="mr-2">📅</span>
+                          {startDate
+                            ? format(new Date(startDate), "dd MMMM yyyy, HH:mm", { locale: id })
+                            : "Pilih tanggal mulai"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={datetimeToDate(startDate)}
+                          onSelect={(date) => {
+                            if (date) {
+                              setStartDate(dateToDatetime(date, startDate));
+                              setStartDateOpen(false); // ← tutup setelah pilih
+                            }
+                          }}
+                          initialFocus
+                          locale={id}
+                        />
+                        {/* Time input */}
+                        <div className="px-3 pb-3 flex items-center gap-2 border-t pt-3">
+                          <span className="text-xs text-muted-foreground">⏰ Waktu:</span>
+                          <Input
+                            type="time"
+                            value={startDate?.split("T")[1]?.slice(0, 5) ?? "00:00"}
+                            onChange={(e) => {
+                              const date = startDate?.split("T")[0] ?? format(new Date(), "yyyy-MM-dd");
+                              setStartDate(`${date}T${e.target.value}`);
+                            }}
+                            className="h-7 text-xs w-28"
+                          />
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    {startDate && (
+                      <button
+                        onClick={() => setStartDate("")}
+                        className="text-[10px] text-muted-foreground hover:text-destructive text-left">
+                        ✕ Hapus start date
+                      </button>
+                    )}
                   </div>
-                  <div>
+
+                  {/* End Date */}
+                  <div className="flex flex-col gap-1.5">
                     <Label className="text-xs">End Date</Label>
-                    <Input type="datetime-local" value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="mt-1" />
+                    <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={`w-full justify-start text-left text-xs font-normal h-9
+                            ${!endDate ? "text-muted-foreground" : ""}`}>
+                          <span className="mr-2">📅</span>
+                          {endDate
+                            ? format(new Date(endDate), "dd MMMM yyyy, HH:mm", { locale: id })
+                            : "Pilih tanggal selesai"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={datetimeToDate(endDate)}
+                          onSelect={(date) => {
+                            if (date) {
+                              setEndDate(dateToDatetime(date, endDate));
+                              setEndDateOpen(false); // ← tutup setelah pilih
+                            }
+                          }}
+                          initialFocus
+                          locale={id}
+                          disabled={(date) => startDate ? date < new Date(startDate) : false}
+                        />
+                        <div className="px-3 pb-3 flex items-center gap-2 border-t pt-3">
+                          <span className="text-xs text-muted-foreground">⏰ Waktu:</span>
+                          <Input
+                            type="time"
+                            value={endDate?.split("T")[1]?.slice(0, 5) ?? "23:59"}
+                            onChange={(e) => {
+                              const date = endDate?.split("T")[0] ?? format(new Date(), "yyyy-MM-dd");
+                              setEndDate(`${date}T${e.target.value}`);
+                            }}
+                            className="h-7 text-xs w-28"
+                          />
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    {endDate && (
+                      <button
+                        onClick={() => setEndDate("")}
+                        className="text-[10px] text-muted-foreground hover:text-destructive text-left">
+                        ✕ Hapus end date
+                      </button>
+                    )}
                   </div>
+
                 </CardContent>
               </Card>
             </div>
