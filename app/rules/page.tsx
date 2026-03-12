@@ -22,6 +22,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Rule {
   id: number;
@@ -229,6 +238,24 @@ export default function RulesPage() {
     }
   };
 
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true);
+    try {
+      await Promise.all([...selectedIds].map((id) => deleteRule(id)));
+      setRules((rs) => rs.filter((r) => !selectedIds.has(r.id)));
+      toast.success(`${selectedIds.size} rule berhasil dihapus`);
+      setSelectedIds(new Set());
+      setShowBulkDeleteDialog(false);
+    } catch {
+      toast.error("Gagal bulk delete");
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full gap-3 text-muted-foreground">
@@ -397,24 +424,28 @@ export default function RulesPage() {
           </span>
           <div className="flex gap-2 ml-auto">
             <Button
-              size="sm"
-              variant="outline"
+              size="sm" variant="outline"
               disabled={bulkLoading}
               className="h-8 text-xs text-green-600 border-green-300 hover:bg-green-50"
               onClick={handleBulkPublish}>
               {bulkLoading ? "..." : `✅ Publish (${selectedIds.size})`}
             </Button>
             <Button
-              size="sm"
-              variant="outline"
+              size="sm" variant="outline"
               disabled={bulkLoading}
               className="h-8 text-xs text-orange-500 border-orange-300 hover:bg-orange-50"
               onClick={handleBulkUnpublish}>
               {bulkLoading ? "..." : `⏸ Unpublish (${selectedIds.size})`}
             </Button>
             <Button
-              size="sm"
-              variant="ghost"
+              size="sm" variant="outline"
+              disabled={bulkLoading}
+              className="h-8 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => setShowBulkDeleteDialog(true)}>
+              🗑️ Hapus ({selectedIds.size})
+            </Button>
+            <Button
+              size="sm" variant="ghost"
               className="h-8 text-xs text-muted-foreground"
               onClick={() => setSelectedIds(new Set())}>
               ✕ Batal
@@ -707,6 +738,29 @@ export default function RulesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus {selectedIds.size} Rule?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tindakan ini tidak bisa dibatalkan. Sebanyak <strong>{selectedIds.size} rule</strong> akan dihapus permanen termasuk yang sudah published.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => setShowBulkDeleteDialog(false)}
+              className="bg-muted text-foreground hover:bg-muted/80">
+              Batal
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="bg-destructive text-white hover:bg-destructive/90">
+              {bulkDeleting ? "Menghapus..." : `Hapus ${selectedIds.size} Rule`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
