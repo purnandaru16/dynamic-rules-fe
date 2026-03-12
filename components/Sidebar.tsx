@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
 
 const navItems = [
   { href: "/dashboard",     label: "Dashboard",     icon: "📊" },
@@ -17,10 +16,7 @@ export function Sidebar() {
   const pathname               = usePathname();
   const router                 = useRouter();
   const { logout, isLoggedIn } = useAuthStore();
-  const { theme, setTheme }    = useTheme();
-  const [mounted, setMounted]  = useState(false);
-
-  useEffect(() => setMounted(true), []);
+  const { resolvedTheme, setTheme } = useTheme();
 
   if (!isLoggedIn) return null;
 
@@ -29,7 +25,7 @@ export function Sidebar() {
     router.push("/login");
   };
 
-  const isDark = theme === "dark";
+  const isDark = resolvedTheme === "dark";
 
   return (
     <aside className="w-56 h-screen border-r bg-muted/30 flex flex-col">
@@ -70,20 +66,18 @@ export function Sidebar() {
       <div className="px-3 py-4 border-t flex flex-col gap-1">
 
         {/* Dark mode toggle */}
-        {mounted && (
-          <button
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-            <span className="flex items-center gap-3">
-              <span>{isDark ? "🌙" : "☀️"}</span>
-              <span>{isDark ? "Dark Mode" : "Light Mode"}</span>
-            </span>
-            <div className={`w-9 h-5 rounded-full transition-colors relative ${isDark ? "bg-primary" : "bg-muted-foreground/30"}`}>
-              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200
-                ${isDark ? "translate-x-4" : "translate-x-0.5"}`} />
-            </div>
-          </button>
-        )}
+        <button
+          onClick={() => setTheme(isDark ? "light" : "dark")}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+          <span className="flex items-center gap-3">
+            <span>{isDark ? "🌙" : "☀️"}</span>
+            <span>{isDark ? "Dark Mode" : "Light Mode"}</span>
+          </span>
+          <div className={`w-9 h-5 rounded-full transition-colors relative ${isDark ? "bg-primary" : "bg-muted-foreground/30"}`}>
+            <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200
+              ${isDark ? "translate-x-4" : "translate-x-0.5"}`} />
+          </div>
+        </button>
 
         {/* Logout */}
         <button
