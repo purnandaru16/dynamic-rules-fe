@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@tailwind utilities;
 
 @custom-variant dark (&:is(.dark *));
 
@@ -123,7 +124,11 @@
   body {
     @apply bg-background text-foreground;
   }
-  html {
-    @apply font-sans;
+  :root {
+    --font-roboto: 'Roboto', sans-serif;
+  }
+
+  * {
+    font-family: var(--font-roboto), sans-serif;
   }
 }
