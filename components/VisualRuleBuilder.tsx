@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import {
+  Tag, MessageSquare, BadgeCheck, Gift, Target, Megaphone,
+  ChevronDown, Box, X, Zap,
+} from "lucide-react";
+import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   useDraggable, useDroppable, PointerSensor, useSensor, useSensors,
 } from "@dnd-kit/core";
@@ -35,12 +39,12 @@ const OP_COLORS    = { AND: "bg-blue-500", OR: "bg-orange-500" };
 const DEPTH_COLORS = ["border-blue-400", "border-green-400", "border-orange-400", "border-purple-400"];
 
 const ACTION_TEMPLATES = [
-  { key: "discount",     label: "Discount",      icon: "🏷️", defaultValue: "10",             type: "number"  },
-  { key: "message",      label: "Message",       icon: "💬", defaultValue: "Rule matched",    type: "string"  },
-  { key: "eligible",     label: "Eligible",      icon: "✅", defaultValue: "true",            type: "boolean" },
-  { key: "rewardValue",  label: "Reward Value",  icon: "🎁", defaultValue: "0",               type: "number"  },
-  { key: "rewardType",   label: "Reward Type",   icon: "🎯", defaultValue: "percentage",      type: "string"  },
-  { key: "campaignName", label: "Campaign Name", icon: "📣", defaultValue: "",                type: "string"  },
+  { key: "discount",     label: "Discount",      icon: <Tag className="size-3.5" />,               defaultValue: "10",          type: "number"  },
+  { key: "message",      label: "Message",       icon: <MessageSquare className="size-3.5" />,      defaultValue: "Rule matched", type: "string"  },
+  { key: "eligible",     label: "Eligible",      icon: <BadgeCheck className="size-3.5" />,         defaultValue: "true",         type: "boolean" },
+  { key: "rewardValue",  label: "Reward Value",  icon: <Gift className="size-3.5" />,               defaultValue: "0",            type: "number"  },
+  { key: "rewardType",   label: "Reward Type",   icon: <Target className="size-3.5" />,             defaultValue: "percentage",   type: "string"  },
+  { key: "campaignName", label: "Campaign Name", icon: <Megaphone className="size-3.5" />,          defaultValue: "",             type: "string"  },
 ];
 
 // ─── Draggable Chip ───────────────────────────────────────────
@@ -93,7 +97,7 @@ function DroppableCanvas({ groupId, children, isEmpty }: {
         <div className={`min-h-30 rounded-xl border-2 border-dashed flex items-center justify-center transition-all duration-200
           ${isOver ? "border-primary bg-primary/5" : "border-muted-foreground/20 bg-muted/10"}`}>
           <span className={`text-sm transition-colors ${isOver ? "text-primary font-medium" : "text-muted-foreground"}`}>
-            {isOver ? "✨ Lepaskan untuk menambah kondisi" : "⬇ Drag attribute ke sini untuk mulai"}
+            {isOver ? "Release to add condition" : "⬇ Drag attribute here to start"}
           </span>
         </div>
       ) : (
@@ -101,7 +105,7 @@ function DroppableCanvas({ groupId, children, isEmpty }: {
           {children}
           {isOver && (
             <div className="mt-2 h-10 rounded-lg border-2 border-dashed border-primary/40 flex items-center justify-center text-xs text-primary">
-              + Tambah kondisi baru
+              + Add new condition
             </div>
           )}
         </div>
@@ -137,7 +141,7 @@ function ConditionRow({ node, objectDef, onUpdate, onRemove }: {
         <SelectContent>
           {suggested.length > 0 && (
             <SelectGroup>
-              <SelectLabel>Disarankan</SelectLabel>
+              <SelectLabel>Suggested</SelectLabel>
               {suggested.map((op) => (
                 <SelectItem key={op} value={op} className="text-xs font-mono">{op}</SelectItem>
               ))}
@@ -145,7 +149,7 @@ function ConditionRow({ node, objectDef, onUpdate, onRemove }: {
           )}
           {others.length > 0 && (
             <SelectGroup>
-              <SelectLabel>Lainnya</SelectLabel>
+              <SelectLabel>Others</SelectLabel>
               {others.map((op) => (
                 <SelectItem key={op} value={op} className="text-xs font-mono text-muted-foreground">{op}</SelectItem>
               ))}
@@ -159,18 +163,18 @@ function ConditionRow({ node, objectDef, onUpdate, onRemove }: {
           onChange={(e) => onUpdate(node.id, { value: e.target.value })}
           placeholder={
             LIST_OPS.has(node.operator)   ? "val1, val2, val3" :
-            NUMERIC_OPS.has(node.operator) ? "angka" : "value"
+            NUMERIC_OPS.has(node.operator) ? "number" : "value"
           }
           className="h-8 text-xs font-mono flex-1 min-w-0"
         />
       ) : (
-        <div className="flex-1 text-xs text-muted-foreground italic px-2">— tidak perlu value</div>
+        <div className="flex-1 text-xs text-muted-foreground italic px-2">— no value needed</div>
       )}
       <Button size="sm" variant="ghost"
-        className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-destructive"
-        onClick={() => onRemove(node.id)}>
-        ✕
-      </Button>
+                          className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => onRemove(node.id)}>
+                          <X className="size-3.5" />
+                        </Button>
     </div>
   );
 }
@@ -198,13 +202,13 @@ function GroupBlock({ node, onUpdateLeaf, onRemoveLeaf, onToggleOperator, onRemo
             {node.operator}
           </button>
           <span className="text-xs text-muted-foreground">
-            {depth === 0 ? "Root group · klik toggle AND/OR" : "Sub group · klik toggle AND/OR"}
+            {depth === 0 ? "Root group · click toggle AND/OR" : "Sub group · click toggle AND/OR"}
           </span>
           {depth > 0 && (
             <Button size="sm" variant="ghost"
               className="ml-auto h-6 text-xs text-muted-foreground hover:text-destructive"
               onClick={() => onRemoveGroup(node.id)}>
-              Hapus group
+              Delete group
             </Button>
           )}
         </div>
@@ -255,7 +259,7 @@ function ActionDropZoneBottom() {
     <div ref={setNodeRef}
       className={`h-10 rounded-lg border-2 border-dashed flex items-center justify-center text-xs transition-all
         ${isOver ? "border-purple-400 bg-purple-50 text-purple-500" : "border-muted-foreground/20 text-muted-foreground"}`}>
-      {isOver ? "✨ Tambah action" : "+ Drop action di sini"}
+      {isOver ? "✨ Add action" : "+ Drop action here"}
     </div>
   );
 }
@@ -267,7 +271,7 @@ function ActionDropZone() {
       className={`min-h-15 rounded-xl border-2 border-dashed flex items-center justify-center transition-all duration-200
         ${isOver ? "border-purple-400 bg-purple-50/50 dark:bg-purple-950/50" : "border-muted-foreground/20 bg-muted/10"}`}>
       <span className={`text-sm ${isOver ? "text-purple-500 font-medium" : "text-muted-foreground"}`}>
-        {isOver ? "✨ Lepaskan untuk menambah action" : "⬇ Drag action ke sini"}
+        {isOver ? "Release to add action" : "⬇ Drag action here"}
       </span>
     </div>
   );
@@ -283,8 +287,8 @@ function ActionRow({ entry, onUpdate, onRemove }: {
 
   return (
     <div className="flex items-center gap-2 p-3 rounded-xl border border-purple-200 bg-purple-50 dark:bg-purple-950 dark:border-purple-800">
-      <span className="text-purple-500 text-sm shrink-0">
-        {template?.icon ?? "⚙️"}
+      <span className="text-purple-500 shrink-0">
+        {template?.icon ?? <Tag className="size-3.5" />}
       </span>
 
       {/* Key */}
@@ -325,7 +329,7 @@ function ActionRow({ entry, onUpdate, onRemove }: {
           type="number"
           value={entry.value}
           onChange={(e) => onUpdate(entry.id, { value: e.target.value })}
-          placeholder="angka"
+          placeholder="number"
           className="h-8 text-xs font-mono flex-1"
         />
       ) : (
@@ -345,7 +349,7 @@ function ActionRow({ entry, onUpdate, onRemove }: {
       <Button size="sm" variant="ghost"
         className="h-7 w-7 p-0 shrink-0 text-muted-foreground hover:text-destructive"
         onClick={() => onRemove(entry.id)}>
-        ✕
+        <X className="size-3.5" />
       </Button>
     </div>
   );
@@ -427,6 +431,7 @@ export function VisualRuleBuilder({ tree, onTreeChange, actionEntries, onActionE
       attribute: item.attribute.name,
       operator: item.attribute.suggestedOperators?.[0] ?? "EQUAL",
       value: "",
+      enabled: true,
     };
     const walk = (node: ConditionNode): ConditionNode => {
       if (node.id === groupId && node.type === "group")
@@ -489,15 +494,15 @@ export function VisualRuleBuilder({ tree, onTreeChange, actionEntries, onActionE
             {/* Object Library Dropdown */}
             <div className="rounded-xl border overflow-hidden">
                 <button
-                onClick={() => setOpenLib(openLib === "object" ? null : "object")}
-                className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/40 hover:bg-muted/70 transition-colors text-sm font-semibold">
-                <span className="flex items-center gap-2">
-                    <span>📦</span>
-                    <span>Object Library</span>
-                </span>
-                <span className={`text-muted-foreground text-xs transition-transform duration-200 ${openLib === "object" ? "rotate-180" : ""}`}>
-                    ▼
-                </span>
+                              onClick={() => setOpenLib(openLib === "object" ? null : "object")}
+                              className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/40 hover:bg-muted/70 transition-colors text-sm font-semibold">
+                              <span className="flex items-center gap-2">
+                                <Box className="size-4 text-primary" />
+                                <span>Object Library</span>
+                              </span>
+                              <span className={`text-muted-foreground transition-transform duration-200 ${openLib === "object" ? "rotate-180" : ""}`}>
+                                <ChevronDown className="size-4" />
+                              </span>
                 </button>
 
                 {openLib === "object" && (
@@ -525,15 +530,15 @@ export function VisualRuleBuilder({ tree, onTreeChange, actionEntries, onActionE
             {/* Action Library Dropdown */}
             <div className="rounded-xl border overflow-hidden">
                 <button
-                onClick={() => setOpenLib(openLib === "action" ? null : "action")}
-                className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/40 hover:bg-muted/70 transition-colors text-sm font-semibold">
-                <span className="flex items-center gap-2">
-                    <span>⚡</span>
-                    <span>Action Library</span>
-                </span>
-                <span className={`text-muted-foreground text-xs transition-transform duration-200 ${openLib === "action" ? "rotate-180" : ""}`}>
-                    ▼
-                </span>
+                              onClick={() => setOpenLib(openLib === "action" ? null : "action")}
+                              className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/40 hover:bg-muted/70 transition-colors text-sm font-semibold">
+                              <span className="flex items-center gap-2">
+                                <Zap className="size-4 text-purple-500" />
+                                <span>Action Library</span>
+                              </span>
+                              <span className={`text-muted-foreground transition-transform duration-200 ${openLib === "action" ? "rotate-180" : ""}`}>
+                                <ChevronDown className="size-4" />
+                              </span>
                 </button>
 
                 {openLib === "action" && (
@@ -561,7 +566,7 @@ export function VisualRuleBuilder({ tree, onTreeChange, actionEntries, onActionE
               </p>
               {!isRootEmpty && (
                 <Button size="sm" variant="outline" className="text-xs h-7" onClick={addSubGroup}>
-                  + Tambah Sub Group
+                  + Add Sub Group
                 </Button>
               )}
             </div>
@@ -593,7 +598,7 @@ export function VisualRuleBuilder({ tree, onTreeChange, actionEntries, onActionE
                     <Button size="sm" variant="outline"
                     className="text-xs h-7 border-purple-300 text-purple-600 hover:bg-purple-50"
                     onClick={() => onActionEntriesChange([...actionEntries, { id: uid(), key: "", value: "", type: "string" }])}>
-                    + Tambah Manual
+                    + Add Manual
                     </Button>
                 </div>
 

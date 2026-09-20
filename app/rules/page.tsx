@@ -23,6 +23,20 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
+  Search,
+  Pencil,
+  Trash2,
+  Send,
+  Ban,
+  CircleCheck,
+  RotateCcw,
+  FileBox,
+  ListPlus,
+  CalendarRange,
+  TimerOff,
+  AppWindow,
+} from "lucide-react";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogContent,
@@ -43,11 +57,29 @@ interface Rule {
   endDate?: string;
 }
 
+// Ubah unix timestamp → Date; support ms atau detik
+const tsToDate = (ts?: string): Date | null => {
+  if (!ts) return null;
+  const n = Number(ts);
+  if (isNaN(n)) return null;
+  let d = new Date(n);
+  if (isNaN(d.getTime())) return null;
+  // Kalau ~10 digit (detik), kalikan 1000
+  if (Math.abs(n) < 1e12) d = new Date(n * 1000);
+  return d;
+};
+
+// Rule expired: ada endDate dan sudah lewat sekarang
+const isExpired = (end?: string): boolean => {
+  const t = tsToDate(end);
+  if (!t) return false;
+  return t.getTime() < Date.now();
+};
+
 // Format unix timestamp → tanggal readable
 const formatTs = (ts?: string) => {
-  if (!ts) return "—";
-  const date = new Date(Number(ts));
-  if (isNaN(date.getTime())) return ts;
+  const date = tsToDate(ts);
+  if (!date) return ts || "—";
   return date.toLocaleDateString("id-ID", {
     day: "2-digit", month: "short", year: "numeric",
   });
@@ -62,9 +94,7 @@ export default function RulesPage() {
   const [deleteTarget, setDeleteTarget] = useState<Rule | null>(null);
   const [deleting, setDeleting]     = useState(false);
   const [loadingIds, setLoadingIds] = useState<Set<number>>(new Set());
-  const [filterAppName, setFilterAppName] = useState("");
   const [filterObject, setFilterObject]   = useState("");
-  const [filterSalesOps, setFilterSalesOps]           = useState("");
   const [filterStatus, setFilterStatus]   = useState<"" | "all" | "true" | "false">("all");
   const [filterPending, setFilterPending] = useState<"" | "all" | "true" | "false">("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -82,7 +112,7 @@ export default function RulesPage() {
       const res = await getRules(params);
       setRules(res.data.data ?? res.data ?? []);
     } catch (e) {
-      console.error("Gagal fetch rules:", e);
+      console.error("Failed to fetch rules:", e);
     } finally {
       setLoading(false);
     }
@@ -97,10 +127,10 @@ export default function RulesPage() {
     try {
       if (rule.published) {
         await unpublishRules([rule.id]);
-        toast.success(`Rule #${rule.id} berhasil di-unpublish`);
+        toast.success(`Rule #${rule.id} unpublished`);
       } else {
         await publishRules([rule.id]);
-        toast.success(`Rule #${rule.id} berhasil di-publish`);
+        toast.success(`Rule #${rule.id} published`);
       }
       setRules((rs) =>
         rs.map((r) =>
@@ -110,7 +140,7 @@ export default function RulesPage() {
         )
       );
     } catch (e) {
-      toast.error(`Gagal mengubah status Rule #${rule.id}`);
+      toast.error(`Failed to change status of Rule #${rule.id}`);
     } finally {
       setLoadingIds((prev) => {
         const next = new Set(prev);
@@ -127,9 +157,9 @@ export default function RulesPage() {
       await deleteRule(deleteTarget.id);
       setRules((rs) => rs.filter((r) => r.id !== deleteTarget.id));
       setDeleteTarget(null);
-      toast.success(`Rule #${deleteTarget.id} berhasil dihapus`);
+      toast.success(`Rule #${deleteTarget.id} deleted`);
     } catch (e) {
-      toast.error(`Gagal menghapus Rule #${deleteTarget.id}`);
+      toast.error(`Failed to delete Rule #${deleteTarget.id}`);
     } finally {
       setDeleting(false);
     }
@@ -138,9 +168,7 @@ export default function RulesPage() {
   // Handle apply filter
   const handleFilter = () => {
     const params: Record<string, string> = {};
-    if (filterAppName.trim())             params.appName           = filterAppName.trim();
     if (filterObject.trim())              params.object            = filterObject.trim();
-    if (filterSalesOps.trim())            params.salesOps          = filterSalesOps.trim();
     if (filterStatus && filterStatus !== "all")   params.published        = filterStatus;
     if (filterPending && filterPending !== "all") params.hasPendingChanges = filterPending;
     fetchRules(Object.keys(params).length > 0 ? params : undefined);
@@ -148,18 +176,14 @@ export default function RulesPage() {
 
   // Handle reset filter
   const handleReset = () => {
-    setFilterAppName("");
     setFilterObject("");
-    setFilterSalesOps("");
     setFilterStatus("all");
     setFilterPending("all");
     fetchRules();
   };
 
   const isFiltered = !!(
-    filterAppName.trim() ||
     filterObject.trim() ||
-    filterSalesOps.trim() ||
     (filterStatus && filterStatus !== "all") ||
     (filterPending && filterPending !== "all")
   );
@@ -170,10 +194,13 @@ export default function RulesPage() {
     JSON.stringify(r).toLowerCase().includes(search.toLowerCase())
   );
 
+  // Nama app dari response rules (satu user = satu app)
+  const currentAppName = rules.find((r) => r.appName)?.appName ?? "";
+
   // Reset ke halaman 1 saat filter/search berubah
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, filterAppName, filterObject, filterSalesOps, filterStatus, filterPending]);
+  }, [search, filterObject, filterStatus, filterPending]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const paginated  = filtered.slice(
@@ -214,10 +241,10 @@ export default function RulesPage() {
       const ids = [...selectedIds];
       await publishRules(ids);
       setRules((rs) => rs.map((r) => selectedIds.has(r.id) ? { ...r, published: true, hasPendingChanges: false } : r));
-      toast.success(`${ids.length} rule berhasil di-publish`);
+      toast.success(`${ids.length} rules published`);
       setSelectedIds(new Set());
     } catch {
-      toast.error("Gagal bulk publish");
+      toast.error("Bulk publish failed");
     } finally {
       setBulkLoading(false);
     }
@@ -229,10 +256,10 @@ export default function RulesPage() {
       const ids = [...selectedIds];
       await unpublishRules(ids);
       setRules((rs) => rs.map((r) => selectedIds.has(r.id) ? { ...r, published: false, hasPendingChanges: false } : r));
-      toast.success(`${ids.length} rule berhasil di-unpublish`);
+      toast.success(`${ids.length} rules unpublished`);
       setSelectedIds(new Set());
     } catch {
-      toast.error("Gagal bulk unpublish");
+      toast.error("Bulk unpublish failed");
     } finally {
       setBulkLoading(false);
     }
@@ -246,11 +273,11 @@ export default function RulesPage() {
     try {
       await Promise.all([...selectedIds].map((id) => deleteRule(id)));
       setRules((rs) => rs.filter((r) => !selectedIds.has(r.id)));
-      toast.success(`${selectedIds.size} rule berhasil dihapus`);
+      toast.success(`${selectedIds.size} rules deleted`);
       setSelectedIds(new Set());
       setShowBulkDeleteDialog(false);
     } catch {
-      toast.error("Gagal bulk delete");
+      toast.error("Bulk delete failed");
     } finally {
       setBulkDeleting(false);
     }
@@ -260,7 +287,7 @@ export default function RulesPage() {
     return (
       <div className="flex items-center justify-center h-full gap-3 text-muted-foreground">
         <span className="animate-spin text-xl">⏳</span>
-        <span className="text-sm font-medium">Memuat rules...</span>
+        <span className="text-sm font-medium">Loading rules...</span>
       </div>
     );
   }
@@ -268,68 +295,58 @@ export default function RulesPage() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
 
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Rules Management</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Kelola dan publish business rules · Publishing Service
+          <h1 className="text-3xl font-bold tracking-tight">Rules Management</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage and publish business rules · Publishing Service :8080
           </p>
         </div>
         <Button onClick={() => router.push("/rules/builder")} className="gap-2">
-          + Rule Baru
+          <ListPlus className="size-4" /> Rule Baru
         </Button>
       </div>
 
       {/* ── Stats Cards ── */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         {[
-          { label: "Total Rules",     value: rules.length,                                    color: "text-blue-500",   bg: "bg-blue-50 dark:bg-blue-950",   icon: "📋" },
-          { label: "Published",       value: rules.filter((r) => r.published).length,         color: "text-green-600",  bg: "bg-green-50 dark:bg-green-950", icon: "✅" },
-          { label: "Pending Changes", value: rules.filter((r) => r.hasPendingChanges).length, color: "text-orange-500", bg: "bg-orange-50 dark:bg-orange-950", icon: "⏳" },
+          { label: "Total Rules",     value: rules.length,                                    Icon: FileBox },
+          { label: "Published",       value: rules.filter((r) => r.published).length,         Icon: CircleCheck },
+          { label: "Pending Changes", value: rules.filter((r) => r.hasPendingChanges).length, Icon: RotateCcw },
+          { label: "Expired",         value: rules.filter((r) => isExpired(r.endDate)).length, Icon: TimerOff, tint: "bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300" },
         ].map((s) => (
-          <div key={s.label} className={`rounded-xl border p-4 flex items-center gap-4 ${s.bg}`}>
-            <span className="text-3xl">{s.icon}</span>
+          <div key={s.label} className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm shadow-black/[0.02] flex items-center gap-4">
+            <span className={`inline-flex items-center justify-center size-12 rounded-2xl ${s.tint ?? "bg-primary/10 text-primary"}`}>
+              <s.Icon className="size-6" />
+            </span>
             <div>
-              <div className={`text-3xl font-bold ${s.color}`}>{s.value}</div>
-              <div className="text-xs text-muted-foreground font-medium mt-0.5">{s.label}</div>
+              <div className="text-3xl font-bold text-foreground tabular-nums">{s.value}</div>
+              <div className="text-xs text-muted-foreground font-medium mt-1">{s.label}</div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* ── Filter Bar ── */}
-      <div className="flex flex-wrap items-end gap-3 mb-4 p-4 rounded-xl border bg-muted/30">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">App Name</label>
-          <input
-            value={filterAppName}
-            onChange={(e) => setFilterAppName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleFilter()}
-            placeholder="contoh: drools-promotion"
-            className="px-3 py-2 rounded-lg border bg-background text-sm outline-none focus:ring-2 focus:ring-ring w-44"
-          />
-        </div>
+      {/* ── App Name (dari response rules) ── */}
+      <div className="flex items-center gap-2 mb-4">
+        <AppWindow className="size-4 text-primary" />
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">App:</span>
+        <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-medium">
+          {currentAppName || "—"}
+        </span>
+      </div>
 
+      {/* ── Filter Bar ── */}
+      <div className="flex flex-wrap items-end gap-3 mb-4 p-4 rounded-2xl border border-border/60 bg-card">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Object</label>
           <input
             value={filterObject}
             onChange={(e) => setFilterObject(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleFilter()}
-            placeholder="contoh: customer"
+            placeholder="e.g. customer"
             className="px-3 py-2 rounded-lg border bg-background text-sm outline-none focus:ring-2 focus:ring-ring w-40"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sales Org</label>
-          <input
-            value={filterSalesOps}
-            onChange={(e) => setFilterSalesOps(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleFilter()}
-            placeholder="contoh: DSO"
-            className="px-3 py-2 rounded-lg border bg-background text-sm outline-none focus:ring-2 focus:ring-ring w-36"
           />
         </div>
 
@@ -337,10 +354,10 @@ export default function RulesPage() {
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</label>
           <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as "" | "true" | "false")}>
             <SelectTrigger className="w-36 bg-background">
-              <SelectValue placeholder="Semua" />
+              <SelectValue placeholder="All" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Semua</SelectItem>
+              <SelectItem value="all">All</SelectItem>
               <SelectItem value="true">
                 <span className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
@@ -361,20 +378,20 @@ export default function RulesPage() {
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pending</label>
           <Select value={filterPending} onValueChange={(v) => setFilterPending(v as "" | "true" | "false")}>
             <SelectTrigger className="w-36 bg-background">
-              <SelectValue placeholder="Semua" />
+              <SelectValue placeholder="All" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Semua</SelectItem>
+              <SelectItem value="all">All</SelectItem>
               <SelectItem value="true">
                 <span className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />
-                  Ada Pending
+                  Has Pending
                 </span>
               </SelectItem>
               <SelectItem value="false">
                 <span className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
-                  Tidak Ada
+                  No Pending
                 </span>
               </SelectItem>
             </SelectContent>
@@ -382,12 +399,12 @@ export default function RulesPage() {
         </div>
 
         <div className="flex gap-2 mb-0.5">
-          <Button onClick={handleFilter} className="h-9 px-4">
-            🔍 Filter
+          <Button onClick={handleFilter} className="h-9 px-4 gap-2">
+            <Search className="size-4" /> Filter
           </Button>
           {isFiltered && (
-            <Button onClick={handleReset} variant="outline" className="h-9 px-4">
-              ✕ Reset
+            <Button onClick={handleReset} variant="outline" className="h-9 px-4 gap-2">
+              <RotateCcw className="size-3.5" /> Reset
             </Button>
           )}
         </div>
@@ -395,24 +412,22 @@ export default function RulesPage() {
         {/* Active filter badges */}
         {isFiltered && (
           <div className="w-full flex items-center gap-2 flex-wrap pt-1">
-            <span className="text-xs text-muted-foreground">Filter aktif:</span>
-            {filterAppName.trim() && <Badge variant="secondary" className="text-xs">App Name: {filterAppName}</Badge>}
+            <span className="text-xs text-muted-foreground">Active filters:</span>
             {filterObject.trim() && <Badge variant="secondary" className="text-xs">Object: {filterObject}</Badge>}
-            {filterSalesOps.trim() && <Badge variant="secondary" className="text-xs">Sales Org: {filterSalesOps}</Badge>}
             {filterStatus && filterStatus !== "all" && <Badge variant="secondary" className="text-xs">Status: {filterStatus === "true" ? "Published" : "Draft"}</Badge>}
-            {filterPending && filterPending !== "all" && <Badge variant="secondary" className="text-xs">Pending: {filterPending === "true" ? "Ada" : "Tidak Ada"}</Badge>}
+            {filterPending && filterPending !== "all" && <Badge variant="secondary" className="text-xs">Pending: {filterPending === "true" ? "Has" : "None"}</Badge>}
           </div>
         )}
       </div>
 
       {/* ── Search ── */}
       <div className="relative mb-4">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">🔍</span>
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Cari berdasarkan ID, kondisi, atau action..."
-          className="w-full pl-9 pr-4 py-2.5 rounded-lg border bg-background text-sm outline-none focus:ring-2 focus:ring-ring transition"
+          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border/60 bg-card text-sm outline-none focus:ring-2 focus:ring-ring transition"
         />
       </div>
 
@@ -420,51 +435,54 @@ export default function RulesPage() {
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-3 px-4 py-2.5 mb-2 rounded-lg border bg-primary/5 border-primary/20">
           <span className="text-sm font-medium text-primary">
-            {selectedIds.size} rule dipilih
+            {selectedIds.size} rule(s) selected
           </span>
           <div className="flex gap-2 ml-auto">
             <Button
               size="sm" variant="outline"
               disabled={bulkLoading}
-              className="h-8 text-xs text-green-600 border-green-300 hover:bg-green-50"
+              className="h-8 text-xs text-emerald-600 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-500/30"
               onClick={handleBulkPublish}>
-              {bulkLoading ? "..." : `✅ Publish (${selectedIds.size})`}
+              {bulkLoading ? "..." : <>
+                <Send className="size-3.5" /> Publish ({selectedIds.size})
+              </>}
             </Button>
             <Button
               size="sm" variant="outline"
               disabled={bulkLoading}
-              className="h-8 text-xs text-orange-500 border-orange-300 hover:bg-orange-50"
+              className="h-8 text-xs text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-500/30"
               onClick={handleBulkUnpublish}>
-              {bulkLoading ? "..." : `⏸ Unpublish (${selectedIds.size})`}
+              {bulkLoading ? "..." : <>
+                <Ban className="size-3.5" /> Unpublish ({selectedIds.size})
+              </>}
             </Button>
             <Button
               size="sm" variant="outline"
               disabled={bulkLoading}
               className="h-8 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
               onClick={() => setShowBulkDeleteDialog(true)}>
-              🗑️ Hapus ({selectedIds.size})
+              <Trash2 className="size-3.5" /> Delete ({selectedIds.size})
             </Button>
             <Button
               size="sm" variant="ghost"
               className="h-8 text-xs text-muted-foreground"
               onClick={() => setSelectedIds(new Set())}>
-              ✕ Batal
+              Cancel
             </Button>
           </div>
         </div>
       )}
 
       {/* ── Table ── */}
-      <div className="rounded-xl border overflow-hidden shadow-sm">
+      <div className="rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm shadow-black/[0.02]">
         <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
         <colgroup>
           <col style={{ width: "40px" }} />
           <col style={{ width: "55px" }} />
           <col style={{ width: "110px" }} />
           <col style={{ width: "240px" }} />
-          <col style={{ width: "120px" }} />
+          <col style={{ width: "160px" }} />
           <col style={{ width: "130px" }} />
-          <col style={{ width: "100px" }} />
           <col style={{ width: "185px" }} />
         </colgroup>
 
@@ -480,31 +498,30 @@ export default function RulesPage() {
               />
             </th>
             <th className="text-center px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">ID</th>
-            <th className="text-center px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">Kondisi</th>
+            <th className="text-center px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">Condition</th>
             <th className="text-center px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">Action</th>
-            <th className="text-center px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">App</th>
-            <th className="text-center px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">Periode</th>
+            <th className="text-center px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">Period</th>
             <th className="text-center px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">Status</th>
-            <th className="text-center px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">Aksi</th>
+            <th className="text-center px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">Actions</th>
           </tr>
         </thead>
 
-        <tbody className="divide-y">
+        <tbody className="divide-y divide-border/60">
           {filtered.length === 0 && (
             <tr>
-              <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
-                <div className="text-3xl mb-2">📭</div>
-                <div className="font-medium">Belum ada rules</div>
-                <div className="text-xs mt-1">Klik &quot;+ Rule Baru&quot; untuk membuat rule pertama</div>
+              <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
+                <div className="flex justify-center mb-3"><FileBox className="size-10 text-muted-foreground/40" /></div>
+                <div className="font-medium">No rules yet</div>
+                <div className="text-xs mt-1">Click &quot;+ New Rule&quot; to create your first rule</div>
               </td>
             </tr>
           )}
-          {paginated.map((rule, i) => (
+          {paginated.map((rule) => (
             <tr key={rule.id}
-              className={`transition-colors hover:bg-muted/40 ${
-                selectedIds.has(rule.id)
-                  ? "bg-primary/5"
-                  : i % 2 === 0 ? "bg-background" : "bg-muted/20"
+              className={`transition-colors ${
+                isExpired(rule.endDate)
+                  ? "bg-rose-50/40 hover:bg-rose-50 dark:bg-rose-500/5 dark:hover:bg-rose-500/10"
+                  : selectedIds.has(rule.id) ? "bg-primary/5 hover:bg-primary/5" : "bg-card hover:bg-muted/40"
               }`}>
 
               {/* Checkbox */}
@@ -522,7 +539,7 @@ export default function RulesPage() {
                 <span className="font-mono font-semibold text-primary">#{rule.id}</span>
               </td>
 
-              {/* Kondisi */}
+              {/* Condition */}
               <td className="px-4 py-3 text-center overflow-hidden">
                 <div className="flex flex-col items-center gap-1">
                   <Badge variant="outline" className="font-mono w-fit text-xs">
@@ -543,102 +560,81 @@ export default function RulesPage() {
                 </div>
               </td>
 
-              {/* App */}
-              <td className="px-4 py-3 text-center overflow-hidden">
-                <span className="text-xs bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-md font-medium">
-                  {rule.appName}
-                </span>
-              </td>
-
-              {/* Periode */}
+              {/* Period */}
               <td className="px-4 py-3 text-center overflow-hidden">
                 {rule.startDate ? (
-                  <div className="text-xs space-y-0.5">
-                    <div className="flex items-center justify-center gap-1 text-green-600">
-                      <span>▶</span>
+                  <div className={`text-xs space-y-0.5 ${isExpired(rule.endDate) ? "text-muted-foreground" : "text-foreground"}`}>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <CalendarRange className="size-3 text-primary shrink-0" />
                       <span>{formatTs(rule.startDate)}</span>
                     </div>
                     {rule.endDate && (
-                      <div className="flex items-center justify-center gap-1 text-red-500">
-                        <span>⏹</span>
+                      <div className="flex items-center justify-center gap-1.5 text-muted-foreground">
+                        <span>→</span>
                         <span>{formatTs(rule.endDate)}</span>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <span className="text-xs text-muted-foreground italic">Tidak ada</span>
+                  <span className="text-xs text-muted-foreground italic">Tanpa periode</span>
                 )}
               </td>
 
               {/* Status */}
               <td className="px-4 py-3 text-center overflow-hidden">
                 <div className="flex flex-col items-center gap-1">
-                  <Badge
-                    variant="outline"
-                    className={`w-fit text-xs font-medium ${
-                      rule.published
-                        ? "bg-green-100 text-green-700 border-green-200 dark:bg-green-900 dark:text-green-300"
-                        : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400"
-                    }`}>
-                    {rule.published ? "● Published" : "○ Draft"}
-                  </Badge>
-                  {rule.hasPendingChanges && (
-                    <Badge variant="outline" className="w-fit text-xs text-orange-500 border-orange-300">
-                      ⏳ Pending
-                    </Badge>
+                  {isExpired(rule.endDate) ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full font-medium border bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/20">
+                      <TimerOff className="size-3" /> Expired
+                    </span>
+                  ) : (
+                    <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full font-medium border
+                      ${rule.published
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20"
+                        : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/10 dark:text-slate-300 dark:border-slate-500/20"} `}>
+                      <span className={`size-1.5 rounded-full ${rule.published ? "bg-emerald-500" : "bg-slate-400"}`} />
+                      {rule.published ? "Published" : "Draft"}
+                    </span>
+                  )}
+                  {!isExpired(rule.endDate) && rule.hasPendingChanges && (
+                    <span className="inline-flex items-center gap-1 text-xs text-amber-500 font-medium">
+                      <RotateCcw className="size-3" /> Pending
+                    </span>
                   )}
                 </div>
               </td>
 
-              {/* Aksi */}
+              {/* Actions */}
               <td className="px-4 py-3 overflow-hidden">
-                <div className="flex items-center justify-start gap-1.5">
-                  {/* {rule.published ? (
-                    // Published → tombol View (read-only)
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 w-15 px-2 text-xs text-blue-500 border-blue-300 hover:bg-blue-50"
-                      onClick={() => router.push(`/rules/builder?id=${rule.id}&mode=view`)}>
-                      👁️ View
-                    </Button>
-                  ) : (
-                    // Draft → tombol Edit
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 w-15 px-2 text-xs"
-                      onClick={() => router.push(`/rules/builder?id=${rule.id}`)}>
-                      ✏️ Edit
-                    </Button>
-                  )} */}
+                <div className="flex items-center justify-center gap-1.5">
                   <Button
-                    size="sm"
+                    size="icon-sm"
                     variant="outline"
-                    className="h-7 w-15 px-2 text-xs"
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Edit"
                     onClick={() => router.push(`/rules/builder?id=${rule.id}`)}>
-                    ✏️ Edit
+                    <Pencil className="size-3.5" />
                   </Button>
 
                   <Button
-                    size="sm"
+                    size="icon-sm"
                     variant="outline"
                     disabled={loadingIds.has(rule.id)}
-                    className={`h-7 w-24 text-xs ${
-                      rule.published
-                        ? "text-orange-500 border-orange-300 hover:bg-orange-50"
-                        : "text-green-600 border-green-300 hover:bg-green-50"
-                    }`}
+                    title={rule.published ? "Unpublish" : "Publish"}
+                    className={rule.published
+                      ? "text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-500/30"
+                      : "text-emerald-600 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-500/30"}
                     onClick={() => handleTogglePublish(rule)}>
-                    {loadingIds.has(rule.id) ? "..." : rule.published ? "Unpublish" : "Publish"}
+                    {loadingIds.has(rule.id) ? <span className="size-3.5 animate-spin border-2 border-current border-t-transparent rounded-full" /> : rule.published ? <Ban className="size-3.5" /> : <Send className="size-3.5" />}
                   </Button>
 
                   <Button
-                    size="sm"
+                    size="icon-sm"
                     variant="ghost"
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    title="Delete"
                     onClick={() => setDeleteTarget(rule)}>
-                    🗑️
+                    <Trash2 className="size-3.5" />
                   </Button>
                 </div>
               </td>
@@ -652,7 +648,7 @@ export default function RulesPage() {
       {filtered.length > 0 && (
         <div className="flex items-center justify-between mt-3">
           <p className="text-xs text-muted-foreground">
-            Menampilkan {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} dari {filtered.length} rules
+            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length} rules
           </p>
 
           {totalPages > 1 && (
@@ -719,21 +715,21 @@ export default function RulesPage() {
         </div>
       )}
 
-      {/* ── Dialog Hapus ── */}
+      {/* ── Delete Dialog ── */}
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Hapus Rule #{deleteTarget?.id}?</DialogTitle>
+            <DialogTitle>Delete Rule #{deleteTarget?.id}?</DialogTitle>
             <DialogDescription>
-              Tindakan ini tidak bisa dibatalkan. Rule yang sudah dihapus tidak bisa dikembalikan.
+              This action cannot be undone. Deleted rules cannot be restored.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              Batal
+              Cancel
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting ? "Menghapus..." : "Ya, Hapus"}
+              {deleting ? "Deleting..." : "Yes, Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -741,22 +737,22 @@ export default function RulesPage() {
       <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus {selectedIds.size} Rule?</AlertDialogTitle>
+            <AlertDialogTitle>Delete {selectedIds.size} Rules?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tindakan ini tidak bisa dibatalkan. Sebanyak <strong>{selectedIds.size} rule</strong> akan dihapus permanen termasuk yang sudah published.
+              This action cannot be undone. <strong>{selectedIds.size} rules</strong> will be permanently deleted, including any that are already published.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction
               onClick={() => setShowBulkDeleteDialog(false)}
               className="bg-muted text-foreground hover:bg-muted/80">
-              Batal
+              Cancel
             </AlertDialogAction>
             <AlertDialogAction
               onClick={handleBulkDelete}
               disabled={bulkDeleting}
               className="bg-destructive text-white hover:bg-destructive/90">
-              {bulkDeleting ? "Menghapus..." : `Hapus ${selectedIds.size} Rule`}
+              {bulkDeleting ? "Deleting..." : `Delete ${selectedIds.size} Rules`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

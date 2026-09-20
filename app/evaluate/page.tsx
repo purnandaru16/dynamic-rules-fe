@@ -9,6 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { checkRules } from "@/lib/api";
 import { toast } from "sonner";
+import {
+  List, Braces, Save, FolderOpen, X, Plus, Play, CheckCircle2,
+  XCircle, Loader2, AlertTriangle, FileJson, Sparkles, ChevronLeft,
+} from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────
 interface AttributeMap {
@@ -109,13 +113,13 @@ function AttributeEditor({
             size="sm" variant="ghost"
             className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
             onClick={() => removeEntry(idx)}>
-            ✕
+            <X className="size-3.5" />
           </Button>
         </div>
       ))}
       <Button size="sm" variant="outline" className="w-fit text-xs mt-1"
         onClick={addEntry}>
-        + Tambah Attribute
+        <Plus className="size-3.5 mr-1" /> Tambah Attribute
       </Button>
     </div>
   );
@@ -181,14 +185,14 @@ export default function EvaluatePage() {
 
         const count = data?.actions?.length ?? 0;
         if (count > 0) {
-        toast.success(`${count} rule match ditemukan`);
+        toast.success(`${count} rule match found`);
         } else {
-        toast.info("Tidak ada rule yang match");
+        toast.info("No rule matched");
         }
     } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : "Gagal menghubungi evaluation-service";
+        const msg = e instanceof Error ? e.message : "Failed to reach evaluation-service";
         setResult({ error: msg });
-        toast.error("Evaluasi gagal — " + msg);
+        toast.error("Evaluation failed — " + msg);
     } finally {
         setLoading(false);
     }
@@ -240,9 +244,9 @@ export default function EvaluatePage() {
       }
       setTab("form");
       setShowPresets(false);
-      toast.success(`Preset "${preset.name}" berhasil dimuat`);
+      toast.success(`Preset "${preset.name}" loaded`);
     } catch {
-      toast.error("Gagal memuat preset");
+      toast.error("Failed to load preset");
     }
   };
 
@@ -268,15 +272,15 @@ export default function EvaluatePage() {
     <div className="p-6 max-w-6xl mx-auto">
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Test Evaluasi Rule</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Kirim fakta ke evaluation-service
+          <h1 className="text-3xl font-bold tracking-tight">Rule Evaluation Test</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Send facts to evaluation-service :8081
           </p>
         </div>
         <Button variant="outline" onClick={() => router.push("/rules")}>
-          ← Rules
+          <ChevronLeft className="size-4 mr-1" /> Rules
         </Button>
       </div>
 
@@ -287,12 +291,13 @@ export default function EvaluatePage() {
 
           {/* Tab switcher */}
           <div className="flex gap-1 border-b">
-            {([["form", "🧩 Form Builder"], ["json", "{ } JSON Manual"]] as const).map(([t, label]) => (
+            {([["form", "Form Builder", List], ["json", "JSON Manual", Braces]] as const).map(([t, label, TabIcon]) => (
               <button key={t} onClick={() => handleTabSwitch(t)}
-                className={`px-4 py-2 text-sm font-medium rounded-t-md border border-b-0 transition-colors
+                className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-t-md border border-b-0 transition-colors
                   ${tab === t
-                    ? "bg-background border-border text-foreground -mb-px"
+                    ? "bg-background border-border text-primary -mb-px"
                     : "bg-muted text-muted-foreground border-transparent hover:text-foreground"}`}>
+                <TabIcon className="size-4" />
                 {label}
               </button>
             ))}
@@ -300,7 +305,7 @@ export default function EvaluatePage() {
 
           <div className="flex items-center gap-2 py-3">
             <Input
-              placeholder="Nama preset..."
+              placeholder="Preset name..."
               value={presetName}
               onChange={(e) => setPresetName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSavePreset()}
@@ -311,7 +316,7 @@ export default function EvaluatePage() {
               className="h-8 text-xs"
               disabled={!presetName.trim()}
               onClick={handleSavePreset}>
-              💾 Simpan
+              <Save className="size-3.5 mr-1" /> Save
             </Button>
 
             {presets.length > 0 && (
@@ -320,7 +325,7 @@ export default function EvaluatePage() {
                   size="sm" variant="outline"
                   className="h-8 text-xs"
                   onClick={() => setShowPresets((v) => !v)}>
-                  📂 Preset ({presets.length})
+                  <FolderOpen className="size-3.5 mr-1" /> Preset ({presets.length})
                 </Button>
 
                 {showPresets && (
@@ -334,12 +339,13 @@ export default function EvaluatePage() {
                         <button
                           className="flex-1 text-left text-sm truncate"
                           onClick={() => handleLoadPreset(preset)}>
-                          📋 {preset.name}
+                          <FileJson className="size-3.5 inline mr-1.5 text-muted-foreground" />
+                          {preset.name}
                         </button>
                         <button
-                          className="text-muted-foreground hover:text-destructive transition-colors text-xs"
+                          className="text-muted-foreground hover:text-destructive transition-colors"
                           onClick={() => handleDeletePreset(preset.name)}>
-                          ✕
+                          <X className="size-3.5" />
                         </button>
                       </div>
                     ))}
@@ -356,7 +362,7 @@ export default function EvaluatePage() {
 
                 {/* Date */}
                 <div>
-                  <Label className="text-sm font-semibold mb-1.5 block">Tanggal Evaluasi</Label>
+                  <Label className="text-sm font-semibold mb-1.5 block">Evaluation Date</Label>
                   <Input type="date" value={date}
                     onChange={(e) => setDate(e.target.value)}
                     className="w-48" />
@@ -370,7 +376,7 @@ export default function EvaluatePage() {
                   <div className="flex items-center justify-between mb-3">
                     <Label className="text-sm font-semibold">Fact Attributes</Label>
                     <Button size="sm" variant="outline" onClick={addFact}>
-                      + Tambah Fact
+                      <Plus className="size-3.5 mr-1" /> Tambah Fact
                     </Button>
                   </div>
 
@@ -392,7 +398,7 @@ export default function EvaluatePage() {
                               <Button size="sm" variant="ghost"
                                 className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
                                 onClick={() => removeFact(fact.id)}>
-                                ✕
+                                <X className="size-3.5" />
                               </Button>
                             )}
                           </div>
@@ -423,7 +429,7 @@ export default function EvaluatePage() {
                   value={jsonInput}
                   onChange={(e) => setJsonInput(e.target.value)}
                   rows={18}
-                  className="w-full font-mono text-sm bg-muted rounded-lg p-3 outline-none focus:ring-2 focus:ring-ring resize-none border"
+                  className="w-full font-mono text-sm bg-slate-900 dark:bg-black/40 text-slate-100 rounded-lg p-3 outline-none focus:ring-2 focus:ring-ring resize-none border border-border"
                 />
               </div>
             )}
@@ -432,28 +438,28 @@ export default function EvaluatePage() {
           <Button
             onClick={handleEvaluate}
             disabled={loading}
-            className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-5 text-base">
-            {loading ? "⏳ Mengevaluasi..." : "⚡ Evaluasi Sekarang"}
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-5 text-base">
+            {loading ? <><Loader2 className="size-5 mr-2 animate-spin" /> Evaluating...</> : <><Play className="size-5 mr-2" /> Evaluate Now</>}
           </Button>
         </div>
 
         {/* ── RIGHT: Result ── */}
         <div className="flex flex-col gap-4">
-          <h3 className="font-semibold text-sm">Hasil Evaluasi</h3>
+          <h3 className="font-semibold text-sm">Evaluation Result</h3>
 
           {/* Idle state */}
           {!result && !loading && (
             <div className="flex-1 border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-8 text-center text-muted-foreground min-h-75">
-              <div className="text-4xl mb-3">⚡</div>
-              <div className="font-medium">Belum ada hasil</div>
-              <div className="text-xs mt-1">Isi form dan klik &quot;Evaluasi Sekarang&quot;</div>
+              <Sparkles className="size-10 mb-3 text-muted-foreground/40" />
+              <div className="font-medium">No results yet</div>
+              <div className="text-xs mt-1">Fill the form and click &quot;Evaluate Now&quot;</div>
             </div>
           )}
 
           {/* Loading */}
           {loading && (
             <div className="flex-1 border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-8 text-center text-muted-foreground min-h-75">
-              <div className="text-4xl mb-3 animate-spin">⏳</div>
+              <Loader2 className="size-10 mb-3 animate-spin text-primary" />
               <div className="font-medium">Menghubungi evaluation-service...</div>
             </div>
           )}
@@ -461,7 +467,9 @@ export default function EvaluatePage() {
           {/* Error */}
           {result?.error && (
             <div className="p-4 rounded-xl border border-destructive bg-destructive/10">
-              <div className="font-semibold text-destructive mb-1">⚠ Error</div>
+              <div className="flex items-center gap-2 font-semibold text-destructive mb-1">
+                <AlertTriangle className="size-4" /> Error
+              </div>
               <div className="font-mono text-xs text-destructive">{result.error}</div>
             </div>
           )}
@@ -473,14 +481,16 @@ export default function EvaluatePage() {
               {/* Match / No match banner */}
               <div className={`rounded-xl border p-4 text-center
                 ${hasMatch
-                  ? "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800"
-                  : "bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-800"}`}>
-                <div className="text-3xl mb-1">{hasMatch ? "✅" : "❌"}</div>
-                <div className={`font-bold text-lg ${hasMatch ? "text-green-700 dark:text-green-300" : "text-red-600 dark:text-red-400"}`}>
-                  {hasMatch ? `${actions.length} Rule Match` : "Tidak Ada Rule yang Match"}
+                  ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800"
+                  : "bg-rose-50 border-rose-200 dark:bg-rose-950/40 dark:border-rose-800"}`}>
+                <div className={`text-4xl mb-1 flex justify-center ${hasMatch ? "text-emerald-500" : "text-rose-400"}`}>
+                  {hasMatch ? <CheckCircle2 className="size-9" /> : <XCircle className="size-9" />}
+                </div>
+                <div className={`font-bold text-lg ${hasMatch ? "text-emerald-700 dark:text-emerald-300" : "text-rose-600 dark:text-rose-400"}`}>
+                  {hasMatch ? `${actions.length} Rule Match` : "No Rule Match"}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  {hasMatch ? `${actions.length} action dihasilkan` : "Tidak ada action yang dieksekusi"}
+                  {hasMatch ? `${actions.length} action(s) generated` : "No actions executed"}
                 </div>
               </div>
 
@@ -523,7 +533,7 @@ export default function EvaluatePage() {
                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 block">
                   Raw Response
                 </Label>
-                <pre className="bg-muted rounded-lg p-3 text-xs font-mono overflow-auto max-h-48">
+                <pre className="bg-slate-900 dark:bg-black/40 text-slate-100 rounded-xl p-3 text-xs font-mono overflow-auto max-h-48 shadow-inner">
                   {JSON.stringify(result, null, 2)}
                 </pre>
               </div>

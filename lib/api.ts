@@ -48,8 +48,8 @@ export const getRules = (params?: Record<string, string>) =>
 export const getRuleById = (id: number) =>
   publishingApi.get(`/rules/${id}`);
 
-export const createRules = (rules: unknown[]) =>
-  publishingApi.post('/rules', rules);
+export const createRule = (rule: unknown) =>
+  publishingApi.post('/rules', rule);
 
 export const updateRules = (rules: unknown[]) =>
   publishingApi.put('/rules', rules);

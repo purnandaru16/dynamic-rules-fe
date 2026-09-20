@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,15 +16,16 @@ import {
   uid,
   type ConditionNode,
 } from "@/components/RuleConditionNode";
-import { createRules } from "@/lib/api";
+import { createRule } from "@/lib/api";
 import { useSearchParams } from "next/navigation";
 import { getRuleById, updateRules } from "@/lib/api";
 import { toast } from "sonner";
 import { VisualRuleBuilder, type ActionEntry } from "@/components/VisualRuleBuilder";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, parse } from "date-fns";
+import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { Wrench, Palette, Eye, CalendarDays, AlarmClock, List, Braces, X } from "lucide-react";
 
 
 // ─── Convert tree → backend payload ──────────────────────────
@@ -39,7 +40,8 @@ const treeToPayload = (node: ConditionNode): object | null => {
     };
   }
 
-  // Skip leaf yang belum lengkap
+  // Skip leaf yang belum lengkap atau dinonaktifkan
+  if (node.enabled === false) return null;
   if (!node.object || !node.attribute || !node.operator) return null;
 
   const leaf: Record<string, unknown> = { operator: node.operator };
@@ -77,6 +79,7 @@ const payloadToTree = (node: Record<string, unknown>): ConditionNode => {
     object:    (node.object    as string) ?? "",
     attribute: (node.attribute as string) ?? "",
     operator:  (node.operator  as string) ?? "EQUAL",
+    enabled:   (node.enabled as boolean) ?? true,
     // Kalau value berupa array (IN/NOT_IN), join jadi string "a, b, c"
     value: Array.isArray(node.value)
       ? (node.value as unknown[]).join(", ")
@@ -108,9 +111,9 @@ const dateToDatetime = (date: Date, existingVal: string): string => {
   return `${format(date, "yyyy-MM-dd")}T${time}`;
 };
 
-export default function RuleBuilderPage() {
+function RuleBuilderPage() {
   const router = useRouter();
-  const [ruleName, setRuleName]   = useState("Rule Baru");
+  const [ruleName, setRuleName]   = useState("New Rule");
   const [action, setAction]       = useState('{\n  "type": "DISCOUNT",\n  "value": 10\n}');
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate]     = useState("");
@@ -183,7 +186,7 @@ export default function RuleBuilderPage() {
         } catch (e) {
           if (!cancelled) {
             console.error("Error load rule:", e);
-            alert("Gagal memuat rule.");
+            alert("Failed to load rule.");
           }
         }
       };
@@ -246,10 +249,10 @@ export default function RuleBuilderPage() {
 
       if (isEditMode) {
         await updateRules([{ id: Number(editId), ...payload }]);
-        toast.success(`Rule #${editId} berhasil diupdate`);
+        toast.success(`Rule #${editId} updated successfully`);
       } else {
-        await createRules([payload]);
-        toast.success("Rule baru berhasil disimpan");
+        await createRule(payload);
+        toast.success("New rule saved successfully");
       }
 
       setSaved(true);
@@ -257,7 +260,7 @@ export default function RuleBuilderPage() {
 
     } catch (e) {
       console.error("=== SAVE ERROR ===", e);
-      toast.error("Gagal menyimpan rule. Periksa kembali form.");
+      toast.error("Failed to save rule. Please check the form.");
     } finally {
       setSaving(false);
     }
@@ -334,7 +337,7 @@ export default function RuleBuilderPage() {
         </Button> */}
         <Button onClick={handleSave} disabled={saving}
           className={saved ? "bg-green-500 hover:bg-green-600" : ""}>
-          {saving ? "Menyimpan..." : saved ? "✓ Tersimpan!" : isEditMode ? "Update Rule" : "Simpan Rule"}
+          {saving ? "Saving..." : saved ? "✓ Saved!" : isEditMode ? "Update Rule" : "Save Rule"}
         </Button>
       </div>
 
@@ -343,7 +346,7 @@ export default function RuleBuilderPage() {
         <span className="text-blue-500 text-lg">👁️</span>
         <div>
           <div className="text-sm font-semibold text-blue-700 dark:text-blue-300">Mode View — Read Only</div>
-          <div className="text-xs text-blue-500">Rule ini sudah published. Unpublish terlebih dahulu untuk mengedit.</div>
+          <div className="text-xs text-blue-500">This rule is already published. Unpublish it first to make edits.</div>
         </div>
         <Button
           size="sm" variant="outline"
@@ -356,19 +359,20 @@ export default function RuleBuilderPage() {
       {/* Tabs */}
       <div className="flex gap-1 border-b mb-0">
         {([
-          ["builder", "🔧 Builder"],
-          ["visual",  "🎨 Visual"],
-          ["preview", "📋 Preview JSON"],
-        ] as const).map(([t, label]) => (
+          ["builder", "Builder", Wrench],
+          ["visual",  "Visual",  Palette],
+          ["preview", "Preview JSON", Eye],
+        ] as const).map(([t, label, TabIcon]) => (
           <button
             key={t}
             onClick={() => handleTabSwitch(t)}
-            className={`px-4 py-2 text-sm font-medium rounded-t-md border border-b-0 transition-colors
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-t-md border border-b-0 transition-colors
               ${tab === t
-                ? "bg-background border-border text-foreground -mb-px"
+                ? "bg-background border-border text-primary -mb-px"
                 : "bg-muted text-muted-foreground border-transparent hover:text-foreground"
               }`}
           >
+            <TabIcon className="size-4" />
             {label}
           </button>
         ))}
@@ -386,11 +390,7 @@ export default function RuleBuilderPage() {
               {/* Kondisi */}
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold">Kondisi (IF)</h3>
-                  <div className="flex gap-2 text-xs text-muted-foreground">
-                    <code className="bg-muted px-1.5 py-0.5 rounded">attr[]</code> semua match
-                    <code className="bg-muted px-1.5 py-0.5 rounded">attr[?]</code> salah satu match
-                  </div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Rules Criteria (IF)</h3>
                 </div>
                 <RuleConditionNode
                   node={tree}
@@ -414,7 +414,7 @@ export default function RuleBuilderPage() {
                             ${actionMode === m
                               ? "bg-primary text-primary-foreground"
                               : "bg-transparent text-muted-foreground hover:bg-muted"}`}>
-                          {m === "form" ? "🧩 Form" : "{ } JSON"}
+                          {m === "form" ? <><List className="size-3.5" /> Form</> : <><Braces className="size-3.5" /> JSON</>}
                         </button>
                       ))}
                     </div>
@@ -456,7 +456,7 @@ export default function RuleBuilderPage() {
                               setActionEntries(next.length > 0 ? next : [{ id: uid(), key: "", value: "", type: "string" }]);
                               setAction(entriesToJson(next));
                             }}>
-                            ✕
+                            <X className="size-3.5" />
                           </Button>
                         </div>
                       ))}
@@ -464,7 +464,7 @@ export default function RuleBuilderPage() {
                         size="sm" variant="outline"
                         className="w-fit text-xs mt-1"
                         onClick={() => setActionEntries([...actionEntries, { id: uid(), key: "", value: "", type: "string" }])}>
-                        + Tambah Field
+                        + Add Field
                       </Button>
                     </div>
                   ) : (
@@ -483,7 +483,7 @@ export default function RuleBuilderPage() {
             <div>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Periode Berlaku</CardTitle>
+                  <CardTitle className="text-sm">Validity Period</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
 
@@ -496,10 +496,10 @@ export default function RuleBuilderPage() {
                           variant="outline"
                           className={`w-full justify-start text-left text-xs font-normal h-9
                             ${!startDate ? "text-muted-foreground" : ""}`}>
-                          <span className="mr-2">📅</span>
+                          <span className="mr-2 text-muted-foreground"><CalendarDays className="size-3.5" /></span>
                           {startDate
                             ? format(new Date(startDate), "dd MMMM yyyy, HH:mm", { locale: id })
-                            : "Pilih tanggal mulai"}
+                            : "Select start date"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -517,7 +517,7 @@ export default function RuleBuilderPage() {
                         />
                         {/* Time input */}
                         <div className="px-3 pb-3 flex items-center gap-2 border-t pt-3">
-                          <span className="text-xs text-muted-foreground">⏰ Waktu:</span>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1"><AlarmClock className="size-3.5" /> Time:</span>
                           <Input
                             type="time"
                             value={startDate?.split("T")[1]?.slice(0, 5) ?? "00:00"}
@@ -534,7 +534,7 @@ export default function RuleBuilderPage() {
                       <button
                         onClick={() => setStartDate("")}
                         className="text-[10px] text-muted-foreground hover:text-destructive text-left">
-                        ✕ Hapus start date
+                        ✕ Clear start date
                       </button>
                     )}
                   </div>
@@ -548,10 +548,10 @@ export default function RuleBuilderPage() {
                           variant="outline"
                           className={`w-full justify-start text-left text-xs font-normal h-9
                             ${!endDate ? "text-muted-foreground" : ""}`}>
-                          <span className="mr-2">📅</span>
+                          <span className="mr-2 text-muted-foreground"><CalendarDays className="size-3.5" /></span>
                           {endDate
                             ? format(new Date(endDate), "dd MMMM yyyy, HH:mm", { locale: id })
-                            : "Pilih tanggal selesai"}
+                            : "Select end date"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -570,7 +570,7 @@ export default function RuleBuilderPage() {
                         />
                         {/* Time input */}
                         <div className="px-3 pb-3 flex items-center gap-2 border-t pt-3">
-                          <span className="text-xs text-muted-foreground">⏰ Waktu:</span>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1"><AlarmClock className="size-3.5" /> Time:</span>
                           <Input
                             type="time"
                             value={endDate?.split("T")[1]?.slice(0, 5) ?? "23:59"}
@@ -587,7 +587,7 @@ export default function RuleBuilderPage() {
                       <button
                         onClick={() => setEndDate("")}
                         className="text-[10px] text-muted-foreground hover:text-destructive text-left">
-                        ✕ Hapus end date
+                        ✕ Clear end date
                       </button>
                     )}
                   </div>
@@ -615,7 +615,7 @@ export default function RuleBuilderPage() {
             <div>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Periode Berlaku</CardTitle>
+                  <CardTitle className="text-sm">Validity Period</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4">
 
@@ -628,10 +628,10 @@ export default function RuleBuilderPage() {
                           variant="outline"
                           className={`w-full justify-start text-left text-xs font-normal h-9
                             ${!startDate ? "text-muted-foreground" : ""}`}>
-                          <span className="mr-2">📅</span>
+                          <span className="mr-2 text-muted-foreground"><CalendarDays className="size-3.5" /></span>
                           {startDate
                             ? format(new Date(startDate), "dd MMMM yyyy, HH:mm", { locale: id })
-                            : "Pilih tanggal mulai"}
+                            : "Select start date"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -649,7 +649,7 @@ export default function RuleBuilderPage() {
                         />
                         {/* Time input */}
                         <div className="px-3 pb-3 flex items-center gap-2 border-t pt-3">
-                          <span className="text-xs text-muted-foreground">⏰ Waktu:</span>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1"><AlarmClock className="size-3.5" /> Time:</span>
                           <Input
                             type="time"
                             value={startDate?.split("T")[1]?.slice(0, 5) ?? "00:00"}
@@ -666,7 +666,7 @@ export default function RuleBuilderPage() {
                       <button
                         onClick={() => setStartDate("")}
                         className="text-[10px] text-muted-foreground hover:text-destructive text-left">
-                        ✕ Hapus start date
+                        ✕ Clear start date
                       </button>
                     )}
                   </div>
@@ -680,10 +680,10 @@ export default function RuleBuilderPage() {
                           variant="outline"
                           className={`w-full justify-start text-left text-xs font-normal h-9
                             ${!endDate ? "text-muted-foreground" : ""}`}>
-                          <span className="mr-2">📅</span>
+                          <span className="mr-2 text-muted-foreground"><CalendarDays className="size-3.5" /></span>
                           {endDate
                             ? format(new Date(endDate), "dd MMMM yyyy, HH:mm", { locale: id })
-                            : "Pilih tanggal selesai"}
+                            : "Select end date"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -701,7 +701,7 @@ export default function RuleBuilderPage() {
                           disabled={(date) => startDate ? date < new Date(startDate) : false}
                         />
                         <div className="px-3 pb-3 flex items-center gap-2 border-t pt-3">
-                          <span className="text-xs text-muted-foreground">⏰ Waktu:</span>
+                          <span className="text-xs text-muted-foreground flex items-center gap-1"><AlarmClock className="size-3.5" /> Time:</span>
                           <Input
                             type="time"
                             value={endDate?.split("T")[1]?.slice(0, 5) ?? "23:59"}
@@ -718,7 +718,7 @@ export default function RuleBuilderPage() {
                       <button
                         onClick={() => setEndDate("")}
                         className="text-[10px] text-muted-foreground hover:text-destructive text-left">
-                        ✕ Hapus end date
+                        ✕ Clear end date
                       </button>
                     )}
                   </div>
@@ -733,15 +733,23 @@ export default function RuleBuilderPage() {
         {tab === "preview" && (
           <div>
             <p className="text-sm text-muted-foreground mb-4">
-              Payload yang akan dikirim ke{" "}
+              Payload that will be sent to{" "}
               <code className="bg-muted px-1.5 py-0.5 rounded text-xs">POST /rules</code>
             </p>
-            <pre className="bg-muted rounded-lg p-4 text-sm font-mono overflow-auto">
+            <pre className="bg-slate-900 dark:bg-black/40 text-slate-100 rounded-xl p-4 text-sm font-mono overflow-auto shadow-inner">
               {JSON.stringify(previewPayload, null, 2)}
             </pre>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="p-8 text-sm text-muted-foreground">Loading…</div>}>
+      <RuleBuilderPage />
+    </Suspense>
   );
 }

@@ -4,6 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import { getRules } from "@/lib/api";
+import {
+  Layers,
+  BadgeCheck,
+  FileEdit,
+  Clock3,
+  ArrowRight,
+  Server,
+} from "lucide-react";
 
 interface Rule {
   id: number;
@@ -72,89 +80,103 @@ export default function DashboardPage() {
     return (
       <div className="flex items-center justify-center h-full gap-3 text-muted-foreground">
         <span className="animate-spin text-xl">⏳</span>
-        <span className="text-sm">Memuat dashboard...</span>
+        <span className="text-sm">Loading dashboard...</span>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 max-w-[90rem] mx-auto lg:p-8">
 
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Ringkasan seluruh rules · Publishing Service :8080
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Overview of all rules · Publishing Service :8080
         </p>
       </div>
 
       {/* ── Stats Cards ── */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label: "Total Rules",     value: total,     icon: "📋", color: "text-blue-500",   bg: "bg-blue-50 dark:bg-blue-950",    border: "border-blue-100 dark:border-blue-900" },
-          { label: "Published",       value: published, icon: "✅", color: "text-green-600",  bg: "bg-green-50 dark:bg-green-950",  border: "border-green-100 dark:border-green-900" },
-          { label: "Draft",           value: draft,     icon: "📝", color: "text-slate-500",  bg: "bg-slate-50 dark:bg-slate-900",  border: "border-slate-100 dark:border-slate-800" },
-          { label: "Pending Changes", value: pending,   icon: "⏳", color: "text-orange-500", bg: "bg-orange-50 dark:bg-orange-950", border: "border-orange-100 dark:border-orange-900" },
+          { label: "Total Rules",     value: total,     Icon: Layers,     tint: "bg-primary/10 text-primary" },
+          { label: "Published",       value: published, Icon: BadgeCheck, tint: "bg-primary/10 text-primary" },
+          { label: "Draft",           value: draft,     Icon: FileEdit,   tint: "bg-primary/10 text-primary" },
+          { label: "Pending Changes", value: pending,   Icon: Clock3,     tint: "bg-primary/10 text-primary" },
         ].map((s) => (
-          <div key={s.label} className={`rounded-xl border p-5 flex items-center gap-4 ${s.bg} ${s.border}`}>
-            <span className="text-3xl">{s.icon}</span>
-            <div>
-              <div className={`text-3xl font-bold ${s.color}`}>{s.value}</div>
-              <div className="text-xs text-muted-foreground font-medium mt-0.5">{s.label}</div>
+          <div
+            key={s.label}
+            className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm shadow-black/[0.02] flex items-center gap-4"
+          >
+            <span className={`inline-flex items-center justify-center size-12 shrink-0 rounded-2xl ${s.tint}`}>
+              <s.Icon className="size-6" />
+            </span>
+            <div className="min-w-0">
+              <div className="text-3xl font-bold text-foreground tabular-nums">{s.value}</div>
+              <div className="text-xs text-muted-foreground font-medium mt-1 truncate">{s.label}</div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Published ratio bar */}
+      {/* ── Published ratio ── */}
       {total > 0 && (
-        <div className="mb-6 p-4 rounded-xl border bg-card">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold">Rasio Published</span>
-            <span className="text-sm text-muted-foreground">
-              {published}/{total} ({Math.round((published / total) * 100)}%)
-            </span>
-          </div>
-          <div className="w-full h-3 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full rounded-full bg-green-500 transition-all duration-500"
-              style={{ width: `${(published / total) * 100}%` }}
-            />
-          </div>
-          <div className="flex gap-4 mt-2">
-            <span className="text-xs flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" />
-              Published ({published})
-            </span>
-            <span className="text-xs flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/30 inline-block" />
-              Draft ({draft})
-            </span>
+        <div className="mb-8 rounded-2xl border border-border/60 bg-card p-6 shadow-sm shadow-black/[0.02]">
+          <div className="flex flex-col md:flex-row md:items-center gap-5 md:gap-10">
+            <div className="shrink-0 md:w-56">
+              <h2 className="text-sm font-semibold flex items-center gap-2">
+                <Server className="size-4 text-primary" /> Published Ratio
+              </h2>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-4xl font-bold text-foreground tabular-nums">{Math.round((published / total) * 100)}%</span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {published}/{total} rules published
+              </div>
+            </div>
+            <div className="flex-1 w-full">
+              <div className="w-full h-3 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-700"
+                  style={{ width: `${Math.max((published / total) * 100, 2)}%` }}
+                />
+              </div>
+              <div className="flex gap-5 mt-3 text-xs">
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <span className="size-2.5 rounded-full bg-primary inline-block" />
+                  Published ({published})
+                </span>
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <span className="size-2.5 rounded-full bg-muted-foreground/30 inline-block" />
+                  Draft ({draft})
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
 
         {/* ── Rules per App ── */}
-        <div className="col-span-2 rounded-xl border bg-card p-5">
-          <h2 className="text-sm font-semibold mb-4">Rules per App</h2>
+        <div className="lg:col-span-2 rounded-2xl border border-border/60 bg-card p-6 shadow-sm shadow-black/[0.02]">
+          <h2 className="text-sm font-semibold mb-5">Rules per App</h2>
           {byApp.length === 0 ? (
-            <div className="text-sm text-muted-foreground italic">Tidak ada data</div>
+            <div className="text-sm text-muted-foreground italic">No data</div>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
               {byApp.map(([app, stat]) => (
                 <div key={app}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium">{app}</span>
-                    <span className="text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between mb-1.5 gap-3">
+                    <span className="text-sm font-medium text-foreground truncate">{app}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">
                       {stat.published}/{stat.total} published
                     </span>
                   </div>
                   <div className="w-full h-2.5 rounded-full bg-muted overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-blue-500 transition-all duration-500"
-                      style={{ width: `${(stat.total / total) * 100}%` }}
+                      className="h-full rounded-full bg-primary transition-all duration-500"
+                      style={{ width: `${Math.max((stat.total / total) * 100, 3)}%` }}
                     />
                   </div>
                 </div>
@@ -164,23 +186,23 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Rules per Operator ── */}
-        <div className="rounded-xl border bg-card p-5">
-          <h2 className="text-sm font-semibold mb-4">Rules per Operator</h2>
+        <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm shadow-black/[0.02]">
+          <h2 className="text-sm font-semibold mb-5">Rules per Operator</h2>
           {byOperator.length === 0 ? (
-            <div className="text-sm text-muted-foreground italic">Tidak ada data</div>
+            <div className="text-sm text-muted-foreground italic">No data</div>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {byOperator.map(([op, count]) => (
-                <div key={op} className="flex items-center justify-between">
-                  <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded">{op}</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 h-2 rounded-full bg-muted overflow-hidden">
+                <div key={op} className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-mono bg-muted px-2.5 py-1 rounded-lg text-foreground/80">{op}</span>
+                  <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
+                    <div className="w-24 h-2 rounded-full bg-muted overflow-hidden shrink-0">
                       <div
-                        className="h-full rounded-full bg-accent-foreground/20 bg-purple-500"
-                        style={{ width: `${(count / total) * 100}%` }}
+                        className="h-full rounded-full bg-primary transition-all duration-500"
+                        style={{ width: `${Math.max((count / total) * 100, 6)}%` }}
                       />
                     </div>
-                    <span className="text-xs text-muted-foreground w-4 text-right">{count}</span>
+                    <span className="text-xs text-muted-foreground w-6 text-right tabular-nums shrink-0">{count}</span>
                   </div>
                 </div>
               ))}
@@ -190,55 +212,68 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Recent Rules ── */}
-      <div className="rounded-xl border bg-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold">Rule Terbaru</h2>
+      <div className="rounded-2xl border border-border/60 bg-card shadow-sm shadow-black/[0.02]">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4">
+          <h2 className="text-sm font-semibold">Latest Rules</h2>
           <button
             onClick={() => router.push("/rules")}
-            className="text-xs text-primary hover:underline">
-            Lihat semua →
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+            View all <ArrowRight className="size-3.5" />
           </button>
         </div>
-        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
-          <colgroup>
-            <col style={{ width: "60px" }} />
-            <col style={{ width: "120px" }} />
-            <col style={{ width: "auto" }} />
-            <col style={{ width: "120px" }} />
-            <col style={{ width: "100px" }} />
-          </colgroup>
-          <thead>
-            <tr className="border-b">
-              {["ID", "App", "Action", "App Name", "Status"].map((h) => (
-                <th key={h} className="text-left pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {recent.map((r) => (
-              <tr key={r.id} className="hover:bg-muted/30 transition-colors">
-                <td className="py-2.5 font-mono font-semibold text-primary text-xs">#{r.id}</td>
-                <td className="py-2.5 text-xs">{r.appName}</td>
-                <td className="py-2.5 text-xs font-mono text-muted-foreground truncate">
-                  {r.condition?.operator} · {r.condition?.children?.length ?? 0} kondisi
-                </td>
-                <td className="py-2.5 text-xs text-muted-foreground">{r.appName}</td>
-                <td className="py-2.5">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium
-                    ${r.published
-                      ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"}`}>
-                    {r.published ? "Published" : "Draft"}
-                  </span>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: "90px" }} />
+              <col style={{ width: "160px" }} />
+              <col style={{ width: "auto" }} />
+              <col style={{ width: "120px" }} />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-border/60">
+                {["ID", "App", "Action", "Status"].map((h) => (
+                  <th key={h} className="text-left px-6 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {recent.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-6 py-10 text-center text-sm text-muted-foreground">
+                    No rules yet. Click <span className="font-medium text-primary">Create Rule</span> to get started.
+                  </td>
+                </tr>
+              )}
+              {recent.map((r) => (
+                <tr key={r.id} onClick={() => router.push(`/rules/builder?id=${r.id}`)} className="cursor-pointer hover:bg-muted/40 transition-colors">
+                  <td className="px-6 py-3 font-mono font-semibold text-primary text-xs whitespace-nowrap">#{r.id}</td>
+                  <td className="px-6 py-3 text-xs font-medium text-foreground truncate max-w-0">{r.appName}</td>
+                  <td className="px-6 py-3 text-xs font-mono text-muted-foreground truncate">
+                    {r.condition?.operator} · {r.condition?.children?.length ?? 0} kondisi
+                  </td>
+                  <td className="px-6 py-3">
+                    <span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full font-medium border
+                      ${r.published
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20"
+                        : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/10 dark:text-slate-300 dark:border-slate-500/20"}`}>
+                      <span className={`size-1.5 rounded-full ${r.published ? "bg-emerald-500" : "bg-slate-400"}`} />
+                      {r.published ? "Published" : "Draft"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-6 py-3 border-t border-border/60 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">Showing {recent.length} of {total} rules</span>
+          <span className="text-xs text-muted-foreground">#{recent[0]?.id ?? "-"} newest</span>
+        </div>
       </div>
 
+      <div className="h-6" />
     </div>
   );
 }

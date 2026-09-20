@@ -1,4 +1,4 @@
-"use client"; // Penting! Tandai sebagai Client Component
+"use client"; // Required! Mark as Client Component
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -26,7 +26,7 @@ export default function LoginPage() {
         setToken(res.data.access_token);
         router.push('/dashboard');
     } catch (err: unknown) {
-      setError('Login gagal. Periksa kembali credentials Anda.');
+      setError('Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -44,7 +44,7 @@ export default function LoginPage() {
         <CardHeader>
           <CardTitle className='text-2xl text-center'>⚡ Dynamic Rules</CardTitle>
           <p className='text-center text-muted-foreground text-sm'>
-            Masuk dengan Client Credentials
+            Sign in with Client Credentials
           </p>
         </CardHeader>
         <CardContent>
@@ -53,19 +53,19 @@ export default function LoginPage() {
               <Label htmlFor='clientId'>Client ID</Label>
               <Input id='clientId' value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
-                placeholder='Masukkan client ID' />
+                placeholder='Enter your client ID' />
             </div>
             <div>
               <Label htmlFor='secret'>Client Secret</Label>
               <Input id='secret' type='password' value={clientSecret}
                 onChange={(e) => setClientSecret(e.target.value)}
-                placeholder='Masukkan client secret' />
+                placeholder='Enter your client secret' />
             </div>
             {error && (
               <p className='text-destructive text-sm'>{error}</p>
             )}
             <Button type='submit' className='w-full' disabled={loading}>
-              {loading ? 'Memverifikasi...' : 'Masuk →'}
+              {loading ? 'Verifying...' : 'Sign in →'}
             </Button>
           </form>
         </CardContent>
