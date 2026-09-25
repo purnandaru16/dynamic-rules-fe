@@ -141,3 +141,62 @@ export const checkRules = (payload: unknown) =>
 
 export const reloadRules = () =>
   evaluationApi.post('/rules/reload');
+
+// ─── ERROR HANDLING HELPERS ────────────────────────────────
+export function getApiErrorMessage(err: unknown, fallback: string = "Terjadi kesalahan pada sistem"): string {
+  if (!err || typeof err !== "object") return fallback;
+  const axiosErr = err as {
+    response?: {
+      status?: number;
+      data?: {
+        message?: string;
+        error?: string;
+        errors?: Array<{ message?: string; type?: string }>;
+      };
+      headers?: Record<string, string>;
+    };
+    message?: string;
+  };
+
+  const data = axiosErr.response?.data;
+  if (data) {
+    if (Array.isArray(data.errors) && data.errors.length > 0) {
+      const messages = data.errors.map((e) => e.message).filter(Boolean);
+      if (messages.length > 0) return messages.join("; ");
+    }
+    if (data.message && data.message !== "error") return data.message;
+    if (data.error) return data.error;
+  }
+  return axiosErr.message || fallback;
+}
+
+export function getRetryAfterSeconds(err: unknown): number | null {
+  if (!err || typeof err !== "object") return null;
+  const axiosErr = err as {
+    response?: {
+      status?: number;
+      data?: { message?: string; error?: string };
+      headers?: Record<string, string>;
+    };
+  };
+
+  if (axiosErr.response?.status === 429) {
+    const headerVal =
+      axiosErr.response.headers?.["retry-after"] ||
+      axiosErr.response.headers?.["Retry-After"];
+    if (headerVal) {
+      const sec = parseInt(headerVal, 10);
+      if (!isNaN(sec) && sec > 0) return sec;
+    }
+    const msg = axiosErr.response.data?.message;
+    if (msg) {
+      const match = msg.match(/retry after (\d+) second/i);
+      if (match && match[1]) {
+        const sec = parseInt(match[1], 10);
+        if (!isNaN(sec) && sec > 0) return sec;
+      }
+    }
+    return 60; // fallback standard rate limit duration
+  }
+  return null;
+}

@@ -20,7 +20,7 @@ import {
   OPTIONAL_VALUE_OPS,
 } from "@/components/RuleConditionNode";
 import { OBJECT_DEFINITIONS } from "@/lib/objects";
-import { createRule, getRuleById, updateRules, publishRules } from "@/lib/api";
+import { createRule, getRuleById, updateRules, publishRules, getApiErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
 import { VisualRuleBuilder, type ActionEntry } from "@/components/VisualRuleBuilder";
 import { Calendar } from "@/components/ui/calendar";
@@ -353,10 +353,10 @@ function RuleBuilderContent() {
             setTree(parsed);
           }
         }
-      } catch (e) {
+      } catch (e: unknown) {
         if (!cancelled) {
           console.error("Error load rule:", e);
-          toast.error("Gagal memuat rule dari server.");
+          toast.error(getApiErrorMessage(e, "Gagal memuat rule dari server."));
         }
       }
     };
@@ -606,8 +606,7 @@ function RuleBuilderContent() {
               : `Rule #${savedRuleId} berhasil disimpan dan langsung dipublish ke engine!`
           );
         } catch (pubErr: unknown) {
-          const errObj = pubErr as { response?: { data?: { message?: string } } };
-          const pubMsg = errObj.response?.data?.message || "Gagal mempublish rule ke engine";
+          const pubMsg = getApiErrorMessage(pubErr, "Gagal mempublish rule ke engine");
           toast.warning(`Rule tersimpan (draft), namun gagal dipublish: ${pubMsg}`);
         }
       } else {
@@ -622,15 +621,7 @@ function RuleBuilderContent() {
       setTimeout(() => router.push("/rules"), 900);
     } catch (e: unknown) {
       console.error("=== SAVE ERROR ===", e);
-      const errObj = e as {
-        response?: { data?: { errors?: { message?: string }[]; message?: string } };
-        message?: string;
-      };
-      const backendError =
-        errObj.response?.data?.errors?.[0]?.message ||
-        errObj.response?.data?.message ||
-        errObj.message ||
-        "Gagal menyimpan rule. Periksa kelengkapan form.";
+      const backendError = getApiErrorMessage(e, "Gagal menyimpan rule. Periksa kelengkapan form.");
       toast.error(backendError);
     } finally {
       setSaving(false);

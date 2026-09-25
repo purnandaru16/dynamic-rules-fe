@@ -13,7 +13,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { getRules, deleteRule, publishRules, unpublishRules, createRules, GetRulesParams } from "@/lib/api";
+import { getRules, deleteRule, publishRules, unpublishRules, createRules, GetRulesParams, getApiErrorMessage } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import {
   Select,
@@ -247,9 +247,9 @@ export default function RulesPage() {
         } else {
           setTotalPages(Math.max(1, Math.ceil(count / size)));
         }
-      } catch (e) {
+      } catch (e: unknown) {
         console.error("Gagal fetch rules:", e);
-        toast.error("Gagal memuat data rules dari server");
+        toast.error(getApiErrorMessage(e, "Gagal memuat data rules dari server"));
       } finally {
         setLoading(false);
       }
@@ -287,8 +287,8 @@ export default function RulesPage() {
         )
       );
       fetchGlobalStats();
-    } catch {
-      toast.error(`Gagal mengubah status Rule #${rule.id}`);
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, `Gagal mengubah status Rule #${rule.id}`));
     } finally {
       setLoadingIds((prev) => {
         const next = new Set(prev);
@@ -311,8 +311,8 @@ export default function RulesPage() {
       } else {
         fetchRules(currentPage, pageSize, appliedFilters);
       }
-    } catch {
-      toast.error(`Gagal menghapus Rule #${deleteTarget.id}`);
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, `Gagal menghapus Rule #${deleteTarget.id}`));
     } finally {
       setDeleting(false);
     }
@@ -435,8 +435,8 @@ export default function RulesPage() {
       toast.success(`${ids.length} rule berhasil di-publish`);
       setSelectedIds(new Set());
       fetchGlobalStats();
-    } catch {
-      toast.error("Gagal bulk publish");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "Gagal bulk publish"));
     } finally {
       setBulkLoading(false);
     }
@@ -455,8 +455,8 @@ export default function RulesPage() {
       toast.success(`${ids.length} rule berhasil di-unpublish`);
       setSelectedIds(new Set());
       fetchGlobalStats();
-    } catch {
-      toast.error("Gagal bulk unpublish");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "Gagal bulk unpublish"));
     } finally {
       setBulkLoading(false);
     }
@@ -475,8 +475,8 @@ export default function RulesPage() {
       } else {
         fetchRules(currentPage, pageSize, appliedFilters);
       }
-    } catch {
-      toast.error("Gagal bulk delete");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "Gagal bulk delete"));
     } finally {
       setBulkDeleting(false);
     }
@@ -544,8 +544,9 @@ export default function RulesPage() {
         try {
           await publishRules(createdIds);
           toast.success(`${createdIds.length} rule berhasil dibuat dan dipublish ke engine!`);
-        } catch {
-          toast.warning(`${createdIds.length} rule dibuat sebagai draft (namun gagal dipublish).`);
+        } catch (pubErr: unknown) {
+          const pubMsg = getApiErrorMessage(pubErr, "namun gagal dipublish");
+          toast.warning(`${createdIds.length} rule dibuat sebagai draft (${pubMsg}).`);
         }
       } else {
         toast.success(`${cleaned.length} rule baru berhasil dibuat!`);
@@ -558,15 +559,7 @@ export default function RulesPage() {
       await fetchRules(1, pageSize, appliedFilters);
     } catch (err: unknown) {
       console.error("Gagal simpan rule dari JSON:", err);
-      const errObj = err as {
-        response?: { data?: { errors?: { message?: string }[]; message?: string } };
-        message?: string;
-      };
-      const msg =
-        errObj.response?.data?.errors?.[0]?.message ||
-        errObj.response?.data?.message ||
-        errObj.message ||
-        "Gagal membuat rule dari JSON. Periksa kembali strukturnya.";
+      const msg = getApiErrorMessage(err, "Gagal membuat rule dari JSON. Periksa kembali strukturnya.");
       toast.error(msg);
     } finally {
       setCreatingFromJson(false);

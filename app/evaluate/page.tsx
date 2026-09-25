@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { checkRules, reloadRules } from "@/lib/api";
+import { checkRules, reloadRules, getApiErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
 import {
   Zap,
@@ -277,11 +277,7 @@ export default function EvaluatePage() {
         toast.info("Evaluasi selesai — tidak ada rule yang match.");
       }
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { errors?: { message: string }[]; message?: string } }; message?: string };
-      const backendError =
-        err.response?.data?.errors?.[0]?.message ||
-        err.response?.data?.message ||
-        (e instanceof Error ? e.message : "Gagal menghubungi evaluation-service");
+      const backendError = getApiErrorMessage(e, "Gagal menghubungi evaluation-service");
       setResult({ error: backendError });
       toast.error("Evaluasi gagal — " + backendError);
     } finally {
@@ -295,11 +291,7 @@ export default function EvaluatePage() {
       await reloadRules();
       toast.success("Rules engine berhasil di-reload dari database MongoDB!");
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { errors?: { message: string }[]; message?: string } }; message?: string };
-      const backendError =
-        err.response?.data?.errors?.[0]?.message ||
-        err.response?.data?.message ||
-        (e instanceof Error ? e.message : "Gagal reload rules engine");
+      const backendError = getApiErrorMessage(e, "Gagal reload rules engine");
       toast.error("Reload gagal — " + backendError);
     } finally {
       setReloading(false);
