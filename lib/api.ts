@@ -74,8 +74,23 @@ export const login = (clientId: string, clientSecret: string) => {
 };
 
 // ─── RULES ─────────────────────────────────────────
-export const getRules = (params?: Record<string, string>) =>
-  publishingApi.get('/rules', { params });
+export interface GetRulesParams {
+  page?: number;
+  size?: number;
+  summary?: boolean;
+  object?: string | string[];
+  published?: boolean | string;
+  hasPendingChanges?: boolean | string;
+  [key: string]: unknown;
+}
+
+export const getRules = (params?: GetRulesParams) =>
+  publishingApi.get('/rules', {
+    params,
+    paramsSerializer: {
+      indexes: null,
+    },
+  });
 
 export const getRuleById = (id: number) =>
   publishingApi.get(`/rules/${id}`);

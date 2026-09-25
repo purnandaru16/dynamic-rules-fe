@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { getRules, deleteRule, publishRules, unpublishRules, createRules } from "@/lib/api";
+import { getRules, deleteRule, publishRules, unpublishRules, createRules, GetRulesParams } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import {
   Select,
@@ -137,6 +137,10 @@ export default function RulesPage() {
   const router = useRouter();
   const { isLoggedIn, isInitialized } = useAuthStore();
   const [rules, setRules] = useState<Rule[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Rule | null>(null);
@@ -145,8 +149,20 @@ export default function RulesPage() {
   const [filterObject, setFilterObject] = useState("");
   const [filterStatus, setFilterStatus] = useState<"" | "all" | "true" | "false">("all");
   const [filterPending, setFilterPending] = useState<"" | "all" | "true" | "false">("all");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [appliedFilters, setAppliedFilters] = useState<{
+    object: string;
+    published: "" | "all" | "true" | "false";
+    hasPendingChanges: "" | "all" | "true" | "false";
+  }>({
+    object: "",
+    published: "all",
+    hasPendingChanges: "all",
+  });
+  const [stats, setStats] = useState({
+    total: 0,
+    published: 0,
+    pending: 0,
+  });
   const [jumpPageInput, setJumpPageInput] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -163,21 +179,95 @@ export default function RulesPage() {
     if (isInitialized && !isLoggedIn) router.push("/login");
   }, [isInitialized, isLoggedIn, router]);
 
-  const fetchRules = async (params?: Record<string, string>) => {
-    setLoading(true);
+  const fetchGlobalStats = useCallback(async () => {
     try {
-      const res = await getRules(params);
-      setRules(res.data.data ?? res.data ?? []);
+      const res = await getRules({ summary: true, size: 100 });
+      let allSummary: Rule[] = res.data.data ?? res.data ?? [];
+      const headerPages = res.headers?.["x-total-pages"];
+      const pages = headerPages ? parseInt(headerPages, 10) : 1;
+      if (!isNaN(pages) && pages > 1) {
+        const remainingPromises = [];
+        for (let p = 1; p < pages; p++) {
+          remainingPromises.push(getRules({ summary: true, page: p, size: 100 }));
+        }
+        const remainingRes = await Promise.all(remainingPromises);
+        for (const r of remainingRes) {
+          allSummary = allSummary.concat(r.data.data ?? r.data ?? []);
+        }
+      }
+      const headerCount = res.headers?.["x-total-count"];
+      const parsedCount = headerCount ? parseInt(headerCount, 10) : allSummary.length;
+      setStats({
+        total: !isNaN(parsedCount) && parsedCount > 0 ? parsedCount : allSummary.length,
+        published: allSummary.filter((r) => r.published).length,
+        pending: allSummary.filter((r) => r.hasPendingChanges).length,
+      });
     } catch (e) {
-      console.error("Gagal fetch rules:", e);
-    } finally {
-      setLoading(false);
+      console.error("Gagal fetch global stats:", e);
     }
-  };
+  }, []);
+
+  const fetchRules = useCallback(
+    async (
+      page = currentPage,
+      size = pageSize,
+      filters = appliedFilters
+    ) => {
+      setLoading(true);
+      try {
+        const params: GetRulesParams = {
+          page: page - 1, // backend is 0-indexed
+          size,
+        };
+        if (filters.object.trim()) params.object = filters.object.trim();
+        if (filters.published && filters.published !== "all") {
+          params.published = filters.published === "true";
+        }
+        if (filters.hasPendingChanges && filters.hasPendingChanges !== "all") {
+          params.hasPendingChanges = filters.hasPendingChanges === "true";
+        }
+
+        const res = await getRules(params);
+        const data: Rule[] = res.data.data ?? res.data ?? [];
+        setRules(data);
+
+        const headerCount = res.headers?.["x-total-count"];
+        const headerPages = res.headers?.["x-total-pages"];
+
+        let count = data.length;
+        if (headerCount !== undefined) {
+          const parsed = parseInt(headerCount, 10);
+          if (!isNaN(parsed)) count = parsed;
+        }
+        setTotalCount(count);
+
+        if (headerPages !== undefined) {
+          const parsedPages = parseInt(headerPages, 10);
+          setTotalPages(isNaN(parsedPages) || parsedPages < 1 ? 1 : parsedPages);
+        } else {
+          setTotalPages(Math.max(1, Math.ceil(count / size)));
+        }
+      } catch (e) {
+        console.error("Gagal fetch rules:", e);
+        toast.error("Gagal memuat data rules dari server");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentPage, pageSize, appliedFilters]
+  );
 
   useEffect(() => {
-    if (isInitialized && isLoggedIn) fetchRules();
-  }, [isInitialized, isLoggedIn]);
+    if (isInitialized && isLoggedIn) {
+      fetchRules(currentPage, pageSize, appliedFilters);
+    }
+  }, [isInitialized, isLoggedIn, currentPage, pageSize, appliedFilters, fetchRules]);
+
+  useEffect(() => {
+    if (isInitialized && isLoggedIn) {
+      fetchGlobalStats();
+    }
+  }, [isInitialized, isLoggedIn, fetchGlobalStats]);
 
   const handleTogglePublish = async (rule: Rule) => {
     setLoadingIds((prev) => new Set(prev).add(rule.id));
@@ -196,6 +286,7 @@ export default function RulesPage() {
             : r
         )
       );
+      fetchGlobalStats();
     } catch {
       toast.error(`Gagal mengubah status Rule #${rule.id}`);
     } finally {
@@ -212,9 +303,14 @@ export default function RulesPage() {
     setDeleting(true);
     try {
       await deleteRule(deleteTarget.id);
-      setRules((rs) => rs.filter((r) => r.id !== deleteTarget.id));
-      setDeleteTarget(null);
       toast.success(`Rule #${deleteTarget.id} berhasil dihapus`);
+      setDeleteTarget(null);
+      fetchGlobalStats();
+      if (rules.length === 1 && currentPage > 1) {
+        setCurrentPage((p) => p - 1);
+      } else {
+        fetchRules(currentPage, pageSize, appliedFilters);
+      }
     } catch {
       toast.error(`Gagal menghapus Rule #${deleteTarget.id}`);
     } finally {
@@ -223,48 +319,48 @@ export default function RulesPage() {
   };
 
   const handleFilter = () => {
-    const params: Record<string, string> = {};
-    if (filterObject.trim()) params.object = filterObject.trim();
-    if (filterStatus && filterStatus !== "all") params.published = filterStatus;
-    if (filterPending && filterPending !== "all") params.hasPendingChanges = filterPending;
-    fetchRules(Object.keys(params).length > 0 ? params : undefined);
+    setCurrentPage(1);
+    setAppliedFilters({
+      object: filterObject.trim(),
+      published: filterStatus,
+      hasPendingChanges: filterPending,
+    });
   };
 
   const handleReset = () => {
     setFilterObject("");
     setFilterStatus("all");
     setFilterPending("all");
-    fetchRules();
+    setCurrentPage(1);
+    setAppliedFilters({
+      object: "",
+      published: "all",
+      hasPendingChanges: "all",
+    });
   };
 
   const isFiltered = !!(
-    filterObject.trim() ||
-    (filterStatus && filterStatus !== "all") ||
-    (filterPending && filterPending !== "all")
+    appliedFilters.object ||
+    appliedFilters.published !== "all" ||
+    appliedFilters.hasPendingChanges !== "all"
   );
 
-  const filtered = rules.filter(
-    (r) =>
-      search === "" ||
-      r.id.toString().includes(search) ||
-      JSON.stringify(r).toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    if (!search.trim()) return rules;
+    const q = search.toLowerCase();
+    return rules.filter(
+      (r) =>
+        r.id.toString().includes(q) ||
+        JSON.stringify(r).toLowerCase().includes(q)
+    );
+  }, [rules, search]);
 
-  useEffect(() => {
+  const paginated = filtered;
+
+  const handlePageSizeChange = (val: number) => {
+    setPageSize(val);
     setCurrentPage(1);
-  }, [search, filterObject, filterStatus, filterPending, pageSize]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const paginated = filtered.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
+  };
 
   const getPaginationRange = (current: number, total: number) => {
     if (total <= 7) {
@@ -338,6 +434,7 @@ export default function RulesPage() {
       );
       toast.success(`${ids.length} rule berhasil di-publish`);
       setSelectedIds(new Set());
+      fetchGlobalStats();
     } catch {
       toast.error("Gagal bulk publish");
     } finally {
@@ -357,6 +454,7 @@ export default function RulesPage() {
       );
       toast.success(`${ids.length} rule berhasil di-unpublish`);
       setSelectedIds(new Set());
+      fetchGlobalStats();
     } catch {
       toast.error("Gagal bulk unpublish");
     } finally {
@@ -368,10 +466,15 @@ export default function RulesPage() {
     setBulkDeleting(true);
     try {
       await Promise.all([...selectedIds].map((id) => deleteRule(id)));
-      setRules((rs) => rs.filter((r) => !selectedIds.has(r.id)));
       toast.success(`${selectedIds.size} rule berhasil dihapus`);
       setSelectedIds(new Set());
       setShowBulkDeleteDialog(false);
+      fetchGlobalStats();
+      if (rules.length <= selectedIds.size && currentPage > 1) {
+        setCurrentPage((p) => p - 1);
+      } else {
+        fetchRules(currentPage, pageSize, appliedFilters);
+      }
     } catch {
       toast.error("Gagal bulk delete");
     } finally {
@@ -450,7 +553,9 @@ export default function RulesPage() {
 
       setShowJsonModal(false);
       setJsonInput("");
-      await fetchRules();
+      fetchGlobalStats();
+      setCurrentPage(1);
+      await fetchRules(1, pageSize, appliedFilters);
     } catch (err: unknown) {
       console.error("Gagal simpan rule dari JSON:", err);
       const errObj = err as {
@@ -485,7 +590,7 @@ export default function RulesPage() {
     }
   };
 
-  if (loading) {
+  if (loading && rules.length === 0 && totalCount === 0) {
     return (
       <div className="flex items-center justify-center min-h-[500px] gap-3 text-muted-foreground">
         <span className="w-5 h-5 rounded-full border-2 border-primary/40 border-t-primary animate-spin" />
@@ -494,9 +599,9 @@ export default function RulesPage() {
     );
   }
 
-  const totalRules = rules.length;
-  const publishedCount = rules.filter((r) => r.published).length;
-  const pendingCount = rules.filter((r) => r.hasPendingChanges).length;
+  const totalRules = stats.total > 0 ? stats.total : (totalCount > 0 ? totalCount : rules.length);
+  const publishedCount = stats.published > 0 ? stats.published : rules.filter((r) => r.published).length;
+  const pendingCount = stats.pending > 0 ? stats.pending : rules.filter((r) => r.hasPendingChanges).length;
 
   return (
     <div className="p-6 sm:p-8 max-w-7xl mx-auto flex flex-col gap-6">
@@ -926,32 +1031,33 @@ export default function RulesPage() {
         </div>
 
         {/* ─── Advanced Interactive Pagination ─── */}
-        {filtered.length > 0 && (
+        {(totalCount > 0 || filtered.length > 0) && (
           <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 border-t border-border/80 bg-muted/20">
             {/* Left: Summary & Page Size Selector */}
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span>
                 Menampilkan{" "}
                 <strong className="text-foreground font-semibold">
-                  {(currentPage - 1) * pageSize + 1}–
-                  {Math.min(currentPage * pageSize, filtered.length)}
+                  {totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1}–
+                  {Math.min(currentPage * pageSize, totalCount)}
                 </strong>{" "}
                 dari{" "}
-                <strong className="text-foreground font-semibold">{filtered.length}</strong> rules
+                <strong className="text-foreground font-semibold">{totalCount}</strong> rules
+                {search.trim() && ` (${filtered.length} cocok di hal ini)`}
               </span>
 
               <div className="hidden sm:flex items-center gap-1.5 pl-3 border-l border-border/60">
                 <span className="text-[11px] text-muted-foreground whitespace-nowrap">Baris per hal:</span>
                 <Select
                   value={String(pageSize)}
-                  onValueChange={(val) => setPageSize(Number(val))}
+                  onValueChange={(val) => handlePageSizeChange(Number(val))}
                 >
                   <SelectTrigger className="h-7 w-[68px] text-xs rounded-lg bg-background border-border">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
                     <SelectItem value="10" className="text-xs">10</SelectItem>
-                    <SelectItem value="25" className="text-xs">25</SelectItem>
+                    <SelectItem value="20" className="text-xs">20</SelectItem>
                     <SelectItem value="50" className="text-xs">50</SelectItem>
                     <SelectItem value="100" className="text-xs">100</SelectItem>
                   </SelectContent>

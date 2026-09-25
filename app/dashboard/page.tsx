@@ -16,7 +16,6 @@ import {
   CheckCircle2,
   Clock,
   ArrowRight,
-  Activity,
   Calendar,
   Search,
   RotateCcw,
@@ -137,8 +136,23 @@ export default function DashboardPage() {
   const loadRules = async () => {
     try {
       setLoading(true);
-      const res = await getRules();
-      setRules(res.data.data ?? res.data ?? []);
+      const res = await getRules({ page: 0, size: 100 });
+      let allRules: Rule[] = res.data.data ?? res.data ?? [];
+      const totalPagesHeader = res.headers?.["x-total-pages"];
+      const totalPages = totalPagesHeader ? parseInt(totalPagesHeader, 10) : 1;
+
+      if (!isNaN(totalPages) && totalPages > 1) {
+        const remainingPromises = [];
+        for (let p = 1; p < totalPages; p++) {
+          remainingPromises.push(getRules({ page: p, size: 100 }));
+        }
+        const remainingResults = await Promise.all(remainingPromises);
+        for (const r of remainingResults) {
+          const pageRules: Rule[] = r.data.data ?? r.data ?? [];
+          allRules = allRules.concat(pageRules);
+        }
+      }
+      setRules(allRules);
     } catch (e) {
       console.error(e);
       toast.error("Gagal memuat data rules dari server");
