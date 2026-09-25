@@ -40,6 +40,7 @@ import {
   mkGroup,
   OPERATORS,
   NO_VALUE_OPS,
+  OPTIONAL_VALUE_OPS,
   LIST_OPS,
   NUMERIC_OPS,
 } from "@/components/RuleConditionNode";
@@ -277,10 +278,10 @@ function FlowConditionNode({
   const c = objectDef ? COLOR_MAP[objectDef.color] : COLOR_MAP.blue;
   const attrDef = objectDef?.attributes.find((a) => a.name === node.attribute);
   const suggested = attrDef?.suggestedOperators ?? [];
-  const others = Object.values(OPERATORS)
-    .flat()
-    .filter((op) => !suggested.includes(op));
+  const allOps = Array.from(new Set(Object.values(OPERATORS).flat()));
+  const others = allOps.filter((op) => !suggested.includes(op));
   const needsValue = !NO_VALUE_OPS.has(node.operator);
+  const isOptionalValue = OPTIONAL_VALUE_OPS.has(node.operator);
   const attrType = attrDef?.type ?? "string";
 
   return (
@@ -378,9 +379,16 @@ function FlowConditionNode({
           <div className="h-6 flex items-center justify-between">
             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
               <Tag className="w-3 h-3 text-primary" />
-              <span>Target Nilai</span>
+              <span>
+                Target Nilai{" "}
+                {isOptionalValue && (
+                  <span className="font-normal lowercase text-[10px] text-muted-foreground">
+                    (opsional format)
+                  </span>
+                )}
+              </span>
             </label>
-            {attrDef?.exampleValue && needsValue && (
+            {attrDef?.exampleValue && needsValue && !isOptionalValue && (
               <span className="text-[10px] text-muted-foreground">
                 cth: <code className="font-mono text-foreground/80">{attrDef.exampleValue}</code>
               </span>
@@ -396,6 +404,8 @@ function FlowConditionNode({
                   ? "val1, val2, val3..."
                   : NUMERIC_OPS.has(node.operator)
                   ? "contoh: 25"
+                  : isOptionalValue
+                  ? "format opsional (cth: dd-MM-yyyy atau dd-MM-yyyy HH:mm:ss)"
                   : attrDef?.exampleValue
                   ? `contoh: ${attrDef.exampleValue}`
                   : "masukkan nilai..."

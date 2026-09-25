@@ -23,11 +23,12 @@ export const OBJECT_DEFINITIONS: ObjectDefinition[] = [
     color: "blue",
     description: "Customer profile, membership tier, and demographic data",
     attributes: [
-      { name: "membershipLevel", type: "string", description: "Tier status: PLATINUM, GOLD, SILVER", suggestedOperators: ["EQUAL", "NOT_EQUAL", "IN", "NOT_IN"], exampleValue: "GOLD" },
-      { name: "status",          type: "string", description: "Account lifecycle status", suggestedOperators: ["EQUAL", "NOT_EQUAL", "IN"], exampleValue: "ACTIVE" },
-      { name: "region",          type: "string", description: "Geographic territory code", suggestedOperators: ["EQUAL", "NOT_EQUAL", "IN", "NOT_IN"], exampleValue: "JKT-01" },
-      { name: "age",             type: "number", description: "Age in completed years", suggestedOperators: ["EQUAL", "MORE_THAN", "LESS_THAN", "MORE_THAN_OR_EQUAL", "LESS_THAN_OR_EQUAL"], exampleValue: "25" },
-      { name: "email",           type: "string", description: "Primary contact email address", suggestedOperators: ["EQUAL", "VALID_EMAIL", "CONTAINS"], exampleValue: "user@corp.id" },
+      { name: "membershipLevel", type: "string", description: "Tier status: PLATINUM, GOLD, SILVER", suggestedOperators: ["EQUAL", "NOT_EQUAL", "EQUALS_IGNORE_CASE", "IN", "NOT_IN"], exampleValue: "GOLD" },
+      { name: "status",          type: "string", description: "Account lifecycle status", suggestedOperators: ["EQUAL", "NOT_EQUAL", "IN", "NOT_IN"], exampleValue: "ACTIVE" },
+      { name: "region",          type: "string", description: "Geographic territory code", suggestedOperators: ["EQUAL", "NOT_EQUAL", "IN", "NOT_IN", "STARTS_WITH", "STARTS_WITH_IGNORE_CASE"], exampleValue: "JKT-01" },
+      { name: "age",             type: "number", description: "Age in completed years", suggestedOperators: ["EQUAL", "MORE_THAN", "LESS_THAN", "MORE_THAN_OR_EQUAL", "LESS_THAN_OR_EQUAL", "NUMERIC", "NOT_NUMERIC"], exampleValue: "25" },
+      { name: "email",           type: "string", description: "Primary contact email address", suggestedOperators: ["EQUAL", "VALID_EMAIL", "NOT_VALID_EMAIL", "CONTAINS", "CONTAINS_IGNORE_CASE"], exampleValue: "user@corp.id" },
+      { name: "registrationDate", type: "string", description: "Member registration date/time", suggestedOperators: ["VALID_DATE", "VALID_DATE_TIME", "NOT_NULL"], exampleValue: "15-06-2024" },
     ]
   },
   {
@@ -37,9 +38,11 @@ export const OBJECT_DEFINITIONS: ObjectDefinition[] = [
     color: "emerald",
     description: "Shopping basket, line items count, and order values",
     attributes: [
-      { name: "total",     type: "number", description: "Gross transaction amount (IDR)", suggestedOperators: ["MORE_THAN", "LESS_THAN", "MORE_THAN_OR_EQUAL", "LESS_THAN_OR_EQUAL", "EQUAL"], exampleValue: "500000" },
-      { name: "coupon",    type: "string", description: "Applied promo voucher code", suggestedOperators: ["EQUAL", "NOT_NULL", "NULL"], exampleValue: "ASTRAHEMAT" },
-      { name: "itemCount", type: "number", description: "Quantity of items inside basket", suggestedOperators: ["MORE_THAN", "LESS_THAN", "EQUAL"], exampleValue: "3" },
+      { name: "total",            type: "number", description: "Gross transaction amount (IDR)", suggestedOperators: ["MORE_THAN", "LESS_THAN", "MORE_THAN_OR_EQUAL", "LESS_THAN_OR_EQUAL", "EQUAL"], exampleValue: "500000" },
+      { name: "coupon",           type: "string", description: "Applied promo voucher code", suggestedOperators: ["EQUAL", "NOT_NULL", "NULL"], exampleValue: "ASTRAHEMAT" },
+      { name: "itemCount",        type: "number", description: "Quantity of items inside basket", suggestedOperators: ["MORE_THAN", "LESS_THAN", "EQUAL"], exampleValue: "3" },
+      { name: "items[].price",    type: "number", description: "Harga setiap item (Semua cocok: [])", suggestedOperators: ["MORE_THAN", "MORE_THAN_OR_EQUAL", "NUMERIC"], exampleValue: "10000" },
+      { name: "items[?].category", type: "string", description: "Kategori item (Minimal 1 cocok: [?])", suggestedOperators: ["EQUAL", "EQUALS_IGNORE_CASE", "IN"], exampleValue: "Electronics" },
     ]
   },
   {

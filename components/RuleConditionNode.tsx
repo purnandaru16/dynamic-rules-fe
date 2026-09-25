@@ -34,24 +34,87 @@ export type ConditionNode = LeafNode | GroupNode;
 
 // ─── Operators ──────────────────────────────────────────────
 export const OPERATORS: Record<string, string[]> = {
-  Equality:   ["EQUAL", "NOT_EQUAL", "EQUALS_IGNORE_CASE"],
-  Comparison: ["MORE_THAN", "LESS_THAN", "MORE_THAN_OR_EQUAL", "LESS_THAN_OR_EQUAL"],
-  Collection: ["IN", "NOT_IN"],
-  String:     ["CONTAINS", "STARTS_WITH", "ENDS_WITH", "MATCHES"],
-  "Null/Empty": ["NULL", "NOT_NULL", "EMPTY", "NOT_EMPTY"],
-  Validation: ["VALID_EMAIL", "VALID_DATE", "NUMERIC", "TRUE"],
+  Equality: [
+    "EQUAL",
+    "NOT_EQUAL",
+    "OBJECT_EQUALS",
+    "EQUALS_IGNORE_CASE",
+  ],
+  Comparison: [
+    "MORE_THAN",
+    "LESS_THAN",
+    "MORE_THAN_OR_EQUAL",
+    "LESS_THAN_OR_EQUAL",
+  ],
+  Collection: [
+    "IN",
+    "NOT_IN",
+  ],
+  "String (Exact)": [
+    "CONTAINS",
+    "NOT_CONTAINS",
+    "STARTS_WITH",
+    "ENDS_WITH",
+    "MATCHES",
+    "NOT_MATCHES",
+  ],
+  "String (Ignore Case)": [
+    "CONTAINS_IGNORE_CASE",
+    "NOT_CONTAINS_IGNORE_CASE",
+    "STARTS_WITH_IGNORE_CASE",
+    "ENDS_WITH_IGNORE_CASE",
+  ],
+  "Null & Empty": [
+    "NULL",
+    "NOT_NULL",
+    "EMPTY",
+    "NOT_EMPTY",
+  ],
+  "Type Check": [
+    "NUMERIC",
+    "NOT_NUMERIC",
+    "TRUE",
+    "NOT_TRUE",
+  ],
+  Validation: [
+    "VALID_EMAIL",
+    "NOT_VALID_EMAIL",
+    "VALID_DATE",
+    "NOT_VALID_DATE",
+    "VALID_DATE_TIME",
+    "NOT_VALID_DATE_TIME",
+  ],
 };
 
+// Operators that require no input value (unary)
 export const NO_VALUE_OPS = new Set([
-  "NULL", "NOT_NULL", "EMPTY", "NOT_EMPTY",
-  "VALID_EMAIL", "NUMERIC", "TRUE", "VALID_DATE",
+  "NULL",
+  "NOT_NULL",
+  "EMPTY",
+  "NOT_EMPTY",
+  "NUMERIC",
+  "NOT_NUMERIC",
+  "TRUE",
+  "NOT_TRUE",
+  "VALID_EMAIL",
+  "NOT_VALID_EMAIL",
+]);
+
+// Operators where input value is optional (e.g. date format patterns)
+export const OPTIONAL_VALUE_OPS = new Set([
+  "VALID_DATE",
+  "NOT_VALID_DATE",
+  "VALID_DATE_TIME",
+  "NOT_VALID_DATE_TIME",
 ]);
 
 export const LIST_OPS = new Set(["IN", "NOT_IN"]);
 
 export const NUMERIC_OPS = new Set([
-  "MORE_THAN", "LESS_THAN",
-  "MORE_THAN_OR_EQUAL", "LESS_THAN_OR_EQUAL",
+  "MORE_THAN",
+  "LESS_THAN",
+  "MORE_THAN_OR_EQUAL",
+  "LESS_THAN_OR_EQUAL",
 ]);
 
 // ─── Helpers ────────────────────────────────────────────────
@@ -98,44 +161,60 @@ const GROUP_COLORS = {
   OR: "bg-amber-600 text-white dark:bg-amber-500",
 };
 
-export function RuleConditionNode({ node, depth = 0, onUpdate, onRemove, onAddChild, viewMode = false }: Props) {
-  const depthColor = DEPTH_COLORS[depth % DEPTH_COLORS.length];
-
+export function RuleConditionNode({
+  node,
+  depth = 0,
+  onUpdate,
+  onRemove,
+  onAddChild,
+  viewMode = false,
+}: Props) {
+  // ─── Group Node ─────────────────────────────────────────────
   if (node.type === "group") {
-    return (
-      <div className={`relative pl-4 sm:pl-5 border-l-2 ${depthColor} my-2`}>
-        {/* Group header */}
-        <div className="flex flex-wrap items-center gap-2 mb-3 bg-card/60 p-2 rounded-xl border border-border/80 backdrop-blur-sm">
-          {/* AND / OR toggle */}
-          <div className="flex rounded-lg overflow-hidden border border-border bg-muted/40 p-0.5">
-            {(["AND", "OR"] as const).map((op) => (
-              <button
-                type="button"
-                key={op}
-                onClick={() => onUpdate(node.id, (n) => n.type === "group" ? { ...n, operator: op } : n)}
-                className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                  node.operator === op
-                    ? `${GROUP_COLORS[op]} shadow-xs`
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {op}
-              </button>
-            ))}
-          </div>
+    const borderColor = DEPTH_COLORS[depth % DEPTH_COLORS.length];
 
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-            <GitBranch className="w-3.5 h-3.5" />
-            <span>{depth === 0 ? "Root Condition Gate" : `Sub-Group Level ${depth}`}</span>
+    return (
+      <div className={`relative flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border-2 ${borderColor} bg-card/50 transition-all`}>
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              <GitBranch className="w-3.5 h-3.5" />
+              <span>Logic Gate</span>
+            </span>
+            <div className="flex rounded-lg overflow-hidden border border-border">
+              {(["AND", "OR"] as const).map((op) => (
+                <button
+                  key={op}
+                  type="button"
+                  disabled={viewMode}
+                  onClick={() =>
+                    onUpdate(node.id, (n) =>
+                      n.type === "group" ? { ...n, operator: op } : n
+                    )
+                  }
+                  className={`px-3 py-1 text-xs font-bold transition-colors ${
+                    node.operator === op
+                      ? GROUP_COLORS[op]
+                      : "bg-muted text-muted-foreground hover:bg-accent"
+                  }`}
+                >
+                  {op}
+                </button>
+              ))}
+            </div>
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">
+              ({node.operator === "AND" ? "Semua kondisi harus benar" : "Salah satu kondisi benar"})
+            </span>
           </div>
 
           {!viewMode && (
-            <div className="ml-auto flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-7 text-xs gap-1 border-border/80 hover:bg-primary/5 hover:text-primary hover:border-primary/40"
+                className="h-7 text-xs gap-1 border-border/80"
                 onClick={() => onAddChild(node.id, mkLeaf())}
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -145,8 +224,8 @@ export function RuleConditionNode({ node, depth = 0, onUpdate, onRemove, onAddCh
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-7 text-xs gap-1 border-border/80 hover:bg-secondary"
-                onClick={() => onAddChild(node.id, mkGroup())}
+                className="h-7 text-xs gap-1 border-border/80"
+                onClick={() => onAddChild(node.id, mkGroup("AND"))}
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Group</span>
@@ -201,6 +280,7 @@ export function RuleConditionNode({ node, depth = 0, onUpdate, onRemove, onAddCh
 
   // ─── Leaf Node ──────────────────────────────────────────────
   const needsValue = !NO_VALUE_OPS.has(node.operator);
+  const isOptionalValue = OPTIONAL_VALUE_OPS.has(node.operator);
 
   return (
     <div className="group relative flex flex-wrap items-center gap-2 p-3 rounded-xl border border-border bg-card hover:border-slate-300 dark:hover:border-slate-700 shadow-xs transition-all">
@@ -213,7 +293,7 @@ export function RuleConditionNode({ node, depth = 0, onUpdate, onRemove, onAddCh
         />
         <span className="text-muted-foreground font-mono text-xs">.</span>
         <Input
-          placeholder="Attribute (cth: status)"
+          placeholder="Attribute (cth: status atau items[].price)"
           value={node.attribute}
           onChange={(e) => onUpdate(node.id, (n) => n.type === "leaf" ? { ...n, attribute: e.target.value } : n)}
           className="font-mono text-xs h-8 bg-background border-border/80 flex-1 min-w-[90px]"
@@ -224,13 +304,13 @@ export function RuleConditionNode({ node, depth = 0, onUpdate, onRemove, onAddCh
         value={node.operator}
         onValueChange={(val) => onUpdate(node.id, (n) => n.type === "leaf" ? { ...n, operator: val } : n)}
       >
-        <SelectTrigger className="w-36 sm:w-44 font-mono text-xs h-8 bg-background border-border/80 shrink-0">
+        <SelectTrigger className="w-44 sm:w-52 font-mono text-xs h-8 bg-background border-border/80 shrink-0">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="max-h-80">
           {Object.entries(OPERATORS).map(([group, ops]) => (
             <SelectGroup key={group}>
-              <SelectLabel className="text-[11px] uppercase tracking-wider text-muted-foreground">{group}</SelectLabel>
+              <SelectLabel className="text-[11px] uppercase tracking-wider text-muted-foreground font-bold">{group}</SelectLabel>
               {ops.map((op) => (
                 <SelectItem key={op} value={op} className="font-mono text-xs">
                   {op}
@@ -249,6 +329,8 @@ export function RuleConditionNode({ node, depth = 0, onUpdate, onRemove, onAddCh
                 ? "val1, val2, val3"
                 : NUMERIC_OPS.has(node.operator)
                 ? "contoh: 25"
+                : isOptionalValue
+                ? "format opsional (cth: dd-MM-yyyy)"
                 : "value"
             }
             value={node.value}
@@ -276,3 +358,5 @@ export function RuleConditionNode({ node, depth = 0, onUpdate, onRemove, onAddCh
     </div>
   );
 }
+
+export default RuleConditionNode;

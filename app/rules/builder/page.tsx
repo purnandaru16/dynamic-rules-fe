@@ -17,6 +17,7 @@ import {
   uid,
   type ConditionNode,
   NO_VALUE_OPS,
+  OPTIONAL_VALUE_OPS,
 } from "@/components/RuleConditionNode";
 import { OBJECT_DEFINITIONS } from "@/lib/objects";
 import { createRule, getRuleById, updateRules, publishRules } from "@/lib/api";
@@ -69,6 +70,13 @@ const treeToPayload = (node: ConditionNode): Record<string, unknown> | null => {
     return leaf;
   }
 
+  if (OPTIONAL_VALUE_OPS.has(node.operator)) {
+    if (node.value !== undefined && node.value.trim() !== "") {
+      leaf.value = node.value.trim();
+    }
+    return leaf;
+  }
+
   if (node.value !== undefined && node.value !== "") {
     if (["IN", "NOT_IN"].includes(node.operator)) {
       leaf.value = node.value.split(",").map((v) => v.trim()).filter(Boolean);
@@ -79,7 +87,7 @@ const treeToPayload = (node: ConditionNode): Record<string, unknown> | null => {
     ) {
       const num = Number(node.value);
       leaf.value = isNaN(num) ? node.value : num;
-    } else if (node.operator === "EQUAL" || node.operator === "NOT_EQUAL") {
+    } else if (node.operator === "EQUAL" || node.operator === "NOT_EQUAL" || node.operator === "OBJECT_EQUALS") {
       const trimmed = node.value.trim();
       if (trimmed.toLowerCase() === "true") {
         leaf.value = true;
@@ -536,7 +544,7 @@ function RuleBuilderContent() {
           if (!node.object || !node.attribute) {
             return "Terdapat kondisi yang belum memilih Object atau Attribute.";
           }
-          if (!NO_VALUE_OPS.has(node.operator) && (node.value === undefined || node.value.trim() === "")) {
+          if (!NO_VALUE_OPS.has(node.operator) && !OPTIONAL_VALUE_OPS.has(node.operator) && (node.value === undefined || node.value.trim() === "")) {
             return `Nilai untuk kondisi ${node.object}.${node.attribute} (${node.operator}) belum diisi.`;
           }
           return null;
